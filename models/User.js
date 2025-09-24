@@ -24,6 +24,13 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  profilePicture: {
+    type: String
+  },
+  isGoogleAuth: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
