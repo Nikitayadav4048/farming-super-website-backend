@@ -130,9 +130,3 @@ http://localhost:3000
 * `authenticateToken` → Validates JWT
 * `requireAdmin` → Restricts access to admin routes
 
-
-This project is for educational/demo purposes.
-
----
-
-👉 Do you want me to also create a **Postman collection JSON** for all these APIs (ready to import & test)?
