@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Farming Website</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .header { background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .user-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .card h3 { margin-top: 0; color: #28a745; }
+        .btn { background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #218838; }
+        .logout { background: #dc3545; }
+        .logout:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌾 Farming Website Dashboard</h1>
+        <p>Welcome to your farming management system</p>
+    </div>
+
+    <div class="user-info">
+        <h2>User Information</h2>
+        <div id="userDetails">Loading...</div>
+        <button class="btn logout" onclick="logout()">Logout</button>
+    </div>
+
+    <div class="actions">
+        <div class="card">
+            <h3>🌱 Crop Management</h3>
+            <p>Manage your crops and farming activities</p>
+            <button class="btn">View Crops</button>
+        </div>
+        <div class="card">
+            <h3>📊 Analytics</h3>
+            <p>View farming statistics and reports</p>
+            <button class="btn">View Reports</button>
+        </div>
+        <div class="card">
+            <h3>🚜 Equipment</h3>
+            <p>Manage farming equipment and tools</p>
+            <button class="btn">View Equipment</button>
+        </div>
+        <div class="card">
+            <h3>📋 Tasks</h3>
+            <p>Manage daily farming tasks</p>
+            <button class="btn">View Tasks</button>
+        </div>
+    </div>
+
+    <script>
+        // Get user data from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const user = urlParams.get('user');
+
+        if (token && user) {
+            try {
+                const userData = JSON.parse(decodeURIComponent(user));
+                document.getElementById('userDetails').innerHTML = `
+                    <p><strong>Name:</strong> ${userData.name}</p>
+                    <p><strong>Email:</strong> ${userData.email}</p>
+                    <p><strong>Login Status:</strong> ✅ Authenticated</p>
+                `;
+                
+                // Store token for future API calls
+                localStorage.setItem('authToken', token);
+                localStorage.setItem('userData', JSON.stringify(userData));
+            } catch (error) {
+                document.getElementById('userDetails').innerHTML = '<p>Error loading user data</p>';
+            }
+        } else {
+            // Check if user data exists in localStorage
+            const storedToken = localStorage.getItem('authToken');
+            const storedUser = localStorage.getItem('userData');
+            
+            if (storedToken && storedUser) {
+                const userData = JSON.parse(storedUser);
+                document.getElementById('userDetails').innerHTML = `
+                    <p><strong>Name:</strong> ${userData.name}</p>
+                    <p><strong>Email:</strong> ${userData.email}</p>
+                    <p><strong>Login Status:</strong> ✅ Authenticated</p>
+                `;
+            } else {
+                // Redirect to login if no authentication found
+                window.location.href = '/oauth-login.html';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            window.location.href = '/oauth-login.html';
+        }
+    </script>
+</body>
+</html>

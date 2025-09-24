@@ -139,7 +139,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     }
     
     const token = user.generateToken();
-    res.redirect(`http://127.0.0.1:5500/?token=${token}&user=${encodeURIComponent(JSON.stringify({
+    res.redirect(`http://127.0.0.1:5500/dashboard.html?token=${token}&user=${encodeURIComponent(JSON.stringify({
       name: user.name,
       email: user.email,
       profilePicture: user.profilePicture
