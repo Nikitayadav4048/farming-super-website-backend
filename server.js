@@ -66,15 +66,17 @@ app.use('/uploads', express.static('uploads'));
 app.use(express.static('.'));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/farming-website', {
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-  bufferMaxEntries: 0,
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000,  // optional, for timeout handling
+  socketTimeoutMS: 45000             // optional
 })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+.then(() => console.log("✅ Connected to MongoDB Atlas"))
+.catch(err => {
+  console.error("❌ MongoDB connection error:", err);
+  process.exit(1); // stop server if connection fails
+});
 
 // OAuth login page
 app.get('/login', (req, res) => {
