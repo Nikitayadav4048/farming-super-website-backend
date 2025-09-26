@@ -11,6 +11,7 @@ require('dotenv').config();
 const User = require('./models/User');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
+const weatherRoutes = require('./routes/weather');
 
 
 
@@ -65,7 +66,13 @@ app.use('/uploads', express.static('uploads'));
 app.use(express.static('.'));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/farming-website')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/farming-website', {
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  bufferMaxEntries: 0,
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
@@ -187,6 +194,7 @@ app.get('/api/auth/status', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/weather', weatherRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
