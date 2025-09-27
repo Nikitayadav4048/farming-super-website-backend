@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Auth - Farming Website</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; }
+        button:hover { background: #0056b3; }
+        .google-btn { background: #db4437; }
+        .google-btn:hover { background: #c23321; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>Farming Website Login</h1>
+    
+    <!-- Google Sign-In -->
+    <button id="googleSignIn" class="google-btn">🔍 Sign in with Google</button>
+    
+    <hr style="margin: 30px 0;">
+    
+    <div id="registerForm">
+        <h2>Register</h2>
+        <form id="register">
+            <div class="form-group">
+                <input type="text" placeholder="Full Name" required>
+            </div>
+            <div class="form-group">
+                <input type="email" placeholder="Email" required>
+            </div>
+            <div class="form-group">
+                <input type="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Register</button>
+        </form>
+    </div>
+    
+    <hr style="margin: 30px 0;">
+    
+    <div id="loginForm">
+        <h2>Login</h2>
+        <form id="login">
+            <div class="form-group">
+                <input type="email" placeholder="Email" required>
+            </div>
+            <div class="form-group">
+                <input type="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    
+    <div id="result"></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7jCMZ2HrVxU54sm7E2on4l3yzB_5eBvI",
+            authDomain: "blog-website-19a91.firebaseapp.com",
+            projectId: "blog-website-19a91",
+            storageBucket: "blog-website-19a91.firebasestorage.app",
+            messagingSenderId: "215765033010",
+            appId: "1:215765033010:web:63b9d9f8bb6e22f5425c2b",
+            measurementId: "G-2L6BRGCFNZ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Google Sign-In with better error handling
+        document.getElementById('googleSignIn').onclick = async function() {
+            try {
+                // Clear previous results
+                document.getElementById('result').innerHTML = '<p>Signing in with Google...</p>';
+                
+                // Configure provider
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const idToken = await user.getIdToken();
+
+                // Send token to backend
+                const response = await fetch('/api/auth/google-auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ access_token: idToken })
+                });
+
+                const data = await response.json();
+
+                if (data.access_token) {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="result success">
+                            <h3>✅ Google Login Success!</h3>
+                            <p>Name: ${data.fullname}</p>
+                            <p>Email: ${data.email}</p>
+                            <p>Token: ${data.access_token.substring(0, 20)}...</p>
+                        </div>`;
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                let errorMessage = error.message;
+                
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = 'Login cancelled. Please try again and complete the Google sign-in process.';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = 'Popup blocked by browser. Please allow popups for this site and try again.';
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    `<div class="result error">
+                        <h3>❌ Google Login Failed</h3>
+                        <p>${errorMessage}</p>
+                        <p><small>Try disabling popup blockers or use email/password login below.</small></p>
+                    </div>`;
+            }
+        };
+
+        // Register
+        document.getElementById('register').onsubmit = function(e) {
+            e.preventDefault();
+            const name = e.target[0].value;
+            const email = e.target[1].value;
+            const password = e.target[2].value;
+            
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role: 'user' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.token) {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="result success">
+                            <h3>✅ Registration Success!</h3>
+                            <p>Name: ${data.user.name}</p>
+                            <p>Email: ${data.user.email}</p>
+                        </div>`;
+                } else {
+                    throw new Error(data.error);
+                }
+            })
+            .catch(err => {
+                document.getElementById('result').innerHTML = 
+                    `<div class="result error">
+                        <h3>❌ Registration Failed</h3>
+                        <p>${err.message}</p>
+                    </div>`;
+            });
+        };
+        
+        // Login
+        document.getElementById('login').onsubmit = function(e) {
+            e.preventDefault();
+            const email = e.target[0].value;
+            const password = e.target[1].value;
+            
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.token) {
+                    document.getElementById('result').innerHTML = 
+                        `<div class="result success">
+                            <h3>✅ Login Success!</h3>
+                            <p>Name: ${data.user.name}</p>
+                            <p>Email: ${data.user.email}</p>
+                        </div>`;
+                } else {
+                    throw new Error(data.error);
+                }
+            })
+            .catch(err => {
+                document.getElementById('result').innerHTML = 
+                    `<div class="result error">
+                        <h3>❌ Login Failed</h3>
+                        <p>${err.message}</p>
+                    </div>`;
+            });
+        };
+    </script>
+</body>
+</html>
