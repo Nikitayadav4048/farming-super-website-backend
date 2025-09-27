@@ -14,7 +14,7 @@ const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const weatherRoutes = require('./routes/weather');
 
-
+const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
 const app = express();
 
@@ -144,6 +144,7 @@ const generateUsername = async (email) => {
 };
 
 // Google OAuth Routes
+
 app.get('/api/auth/google', (req, res) => {
   const scopes = ['profile', 'email'];
   const url = oauth2Client.generateAuthUrl({
@@ -182,14 +183,14 @@ app.get('/api/auth/google/callback', async (req, res) => {
     }
     
     const token = user.generateToken();
-    res.redirect(`http://127.0.0.1:5500/dashboard.html?token=${token}&user=${encodeURIComponent(JSON.stringify({
+    res.redirect(`${FRONTEND_BASE_URL}/dashboard.html?token=${token}&user=${encodeURIComponent(JSON.stringify({
       name: user.name,
       email: user.email,
       profilePicture: user.profilePicture
     }))}`);  
   } catch (error) {
     console.error('OAuth error:', error);
-    res.redirect('http://127.0.0.1:5500/?error=oauth_failed');
+    res.redirect('${FRONTEND_BASE_URL}/?error=oauth_failed');
   }
 });
 

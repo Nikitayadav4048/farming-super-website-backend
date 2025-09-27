@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Google Auth - Farming Website</title>
+    <title>Farming Website Login</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
         .form-group { margin-bottom: 15px; }
@@ -19,7 +19,9 @@
     <h1>Farming Website Login</h1>
     
     <!-- Google Sign-In -->
-    <button id="googleSignIn" class="google-btn">🔍 Sign in with Google</button>
+    <button id="googleSignIn" class="google-btn">
+        🔍 Sign in with Google
+    </button>
     
     <hr style="margin: 30px 0;">
     
@@ -56,143 +58,80 @@
     
     <div id="result"></div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    <script>
+        // ========== CONFIG ==========
+        const BACKEND_URL = 'https://farming-super-website-backend.onrender.com'; // deployed backend
+        const FRONTEND_BASE_URL = 'http://127.0.0.1:5500'; // your local frontend for testing
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyC7jCMZ2HrVxU54sm7E2on4l3yzB_5eBvI",
-            authDomain: "blog-website-19a91.firebaseapp.com",
-            projectId: "blog-website-19a91",
-            storageBucket: "blog-website-19a91.firebasestorage.app",
-            messagingSenderId: "215765033010",
-            appId: "1:215765033010:web:63b9d9f8bb6e22f5425c2b",
-            measurementId: "G-2L6BRGCFNZ"
+        // ===== Google Sign-In =====
+        document.getElementById('googleSignIn').onclick = function() {
+            // Redirect to backend Google OAuth endpoint
+            window.location.href = `${BACKEND_URL}/api/auth/google`;
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        // Google Sign-In with better error handling
-        document.getElementById('googleSignIn').onclick = async function() {
-            try {
-                // Clear previous results
-                document.getElementById('result').innerHTML = '<p>Signing in with Google...</p>';
-                
-                // Configure provider
-                provider.addScope('email');
-                provider.addScope('profile');
-                
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                const idToken = await user.getIdToken();
-
-                // Send token to backend
-                const response = await fetch('/api/auth/google-auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ access_token: idToken })
-                });
-
-                const data = await response.json();
-
-                if (data.access_token) {
-                    document.getElementById('result').innerHTML = 
-                        `<div class="result success">
-                            <h3>✅ Google Login Success!</h3>
-                            <p>Name: ${data.fullname}</p>
-                            <p>Email: ${data.email}</p>
-                            <p>Token: ${data.access_token.substring(0, 20)}...</p>
-                        </div>`;
-                } else {
-                    throw new Error(data.error || 'Login failed');
-                }
-            } catch (error) {
-                console.error('Google login error:', error);
-                let errorMessage = error.message;
-                
-                if (error.code === 'auth/popup-closed-by-user') {
-                    errorMessage = 'Login cancelled. Please try again and complete the Google sign-in process.';
-                } else if (error.code === 'auth/popup-blocked') {
-                    errorMessage = 'Popup blocked by browser. Please allow popups for this site and try again.';
-                }
-                
-                document.getElementById('result').innerHTML = 
-                    `<div class="result error">
-                        <h3>❌ Google Login Failed</h3>
-                        <p>${errorMessage}</p>
-                        <p><small>Try disabling popup blockers or use email/password login below.</small></p>
-                    </div>`;
-            }
-        };
-
-        // Register
-        document.getElementById('register').onsubmit = function(e) {
+        // ===== Register =====
+        document.getElementById('register').onsubmit = async function(e) {
             e.preventDefault();
             const name = e.target[0].value;
             const email = e.target[1].value;
             const password = e.target[2].value;
             
-            fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, role: 'user' })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.token) {
-                    document.getElementById('result').innerHTML = 
-                        `<div class="result success">
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role: 'user' })
+                });
+                const data = await res.json();
+                if (data.access_token) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="result success">
                             <h3>✅ Registration Success!</h3>
-                            <p>Name: ${data.user.name}</p>
-                            <p>Email: ${data.user.email}</p>
+                            <p>Name: ${data.username}</p>
+                            <p>Email: ${data.email}</p>
                         </div>`;
                 } else {
-                    throw new Error(data.error);
+                    throw new Error(data.error || 'Registration failed');
                 }
-            })
-            .catch(err => {
-                document.getElementById('result').innerHTML = 
-                    `<div class="result error">
+            } catch (err) {
+                document.getElementById('result').innerHTML = `
+                    <div class="result error">
                         <h3>❌ Registration Failed</h3>
                         <p>${err.message}</p>
                     </div>`;
-            });
+            }
         };
-        
-        // Login
-        document.getElementById('login').onsubmit = function(e) {
+
+        // ===== Login =====
+        document.getElementById('login').onsubmit = async function(e) {
             e.preventDefault();
             const email = e.target[0].value;
             const password = e.target[1].value;
-            
-            fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.token) {
-                    document.getElementById('result').innerHTML = 
-                        `<div class="result success">
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.access_token) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="result success">
                             <h3>✅ Login Success!</h3>
-                            <p>Name: ${data.user.name}</p>
-                            <p>Email: ${data.user.email}</p>
+                            <p>Name: ${data.username}</p>
+                            <p>Email: ${data.email}</p>
                         </div>`;
                 } else {
-                    throw new Error(data.error);
+                    throw new Error(data.error || 'Login failed');
                 }
-            })
-            .catch(err => {
-                document.getElementById('result').innerHTML = 
-                    `<div class="result error">
+            } catch (err) {
+                document.getElementById('result').innerHTML = `
+                    <div class="result error">
                         <h3>❌ Login Failed</h3>
                         <p>${err.message}</p>
                     </div>`;
-            });
+            }
         };
     </script>
 </body>
