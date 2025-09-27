@@ -19,22 +19,16 @@
     <h1>Farming Website Login</h1>
     
     <!-- Google Sign-In -->
-    <a href="http://localhost:3000/api/auth/google" class="google-btn">🔍 Sign in with Google</a>
+    <a id="googleSignIn" class="google-btn">🔍 Sign in with Google</a>
     
     <hr style="margin: 30px 0;">
     
     <div id="registerForm">
         <h2>Register</h2>
         <form id="register">
-            <div class="form-group">
-                <input type="text" placeholder="Full Name" required>
-            </div>
-            <div class="form-group">
-                <input type="email" placeholder="Email" required>
-            </div>
-            <div class="form-group">
-                <input type="password" placeholder="Password" required>
-            </div>
+            <div class="form-group"><input type="text" placeholder="Full Name" required></div>
+            <div class="form-group"><input type="email" placeholder="Email" required></div>
+            <div class="form-group"><input type="password" placeholder="Password" required></div>
             <button type="submit">Register</button>
         </form>
     </div>
@@ -44,12 +38,8 @@
     <div id="loginForm">
         <h2>Login</h2>
         <form id="login">
-            <div class="form-group">
-                <input type="email" placeholder="Email" required>
-            </div>
-            <div class="form-group">
-                <input type="password" placeholder="Password" required>
-            </div>
+            <div class="form-group"><input type="email" placeholder="Email" required></div>
+            <div class="form-group"><input type="password" placeholder="Password" required></div>
             <button type="submit">Login</button>
         </form>
     </div>
@@ -57,6 +47,14 @@
     <div id="result"></div>
 
     <script>
+        // Dynamically detect backend URL
+        const BACKEND_BASE_URL = window.location.hostname.includes('localhost')
+            ? 'http://localhost:3000' // local backend
+            : 'https://farming-super-website-backend.onrender.com'; // deployed backend
+
+        // Set Google Sign-In link dynamically
+        document.getElementById('googleSignIn').href = `${BACKEND_BASE_URL}/api/auth/google`;
+
         // Check for OAuth success/error
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -80,14 +78,14 @@
                 </div>`;
         }
 
-        // Register
+        // Register form
         document.getElementById('register').onsubmit = function(e) {
             e.preventDefault();
             const name = e.target[0].value;
             const email = e.target[1].value;
             const password = e.target[2].value;
-            
-            fetch('http://localhost:3000/api/auth/register', {
+
+            fetch(`${BACKEND_BASE_URL}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password, role: 'user' })
@@ -114,13 +112,13 @@
             });
         };
         
-        // Login
+        // Login form
         document.getElementById('login').onsubmit = function(e) {
             e.preventDefault();
             const email = e.target[0].value;
             const password = e.target[1].value;
-            
-            fetch('http://localhost:3000/api/auth/login', {
+
+            fetch(`${BACKEND_BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
