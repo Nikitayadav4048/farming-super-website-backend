@@ -140,7 +140,8 @@ app.get('/api/auth/google', (req, res) => {
   const scopes = ['profile', 'email'];
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: scopes
+    scope: scopes,
+    redirect_uri: process.env.GOOGLE_REDIRECT_URI
   });
   res.redirect(url);
 });
@@ -149,7 +150,10 @@ app.get('/api/auth/google/callback', async (req, res) => {
   const { code } = req.query;
   
   try {
-    const { tokens } = await oauth2Client.getToken(code);
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI
+    });
     oauth2Client.setCredentials(tokens);
     
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
