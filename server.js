@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const helmet = require('helmet');
 const cors = require('cors');
 const { google } = require('googleapis');
+const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { nanoid } = require('nanoid');
@@ -60,6 +61,13 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI
 );
+
+// Facebook OAuth config
+const facebookConfig = {
+  clientId: process.env.FACEBOOK_APP_ID,
+  clientSecret: process.env.FACEBOOK_APP_SECRET,
+  redirectUri: process.env.FACEBOOK_REDIRECT_URI
+};
 
 // Static files
 app.use('/uploads', express.static('uploads'));
@@ -185,14 +193,60 @@ app.get('/api/auth/google/callback', async (req, res) => {
   }
 });
 
+// Facebook OAuth Routes
+app.get('/api/auth/facebook', (req, res) => {
+  const url = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${facebookConfig.clientId}&redirect_uri=${encodeURIComponent(facebookConfig.redirectUri)}&scope=email,public_profile`;
+  res.redirect(url);
+});
+
+app.get('/api/auth/facebook/callback', async (req, res) => {
+  const { code } = req.query;
+  
+  try {
+    // Exchange code for access token
+    const tokenResponse = await axios.get(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${facebookConfig.clientId}&redirect_uri=${encodeURIComponent(facebookConfig.redirectUri)}&client_secret=${facebookConfig.clientSecret}&code=${code}`);
+    
+    const { access_token } = tokenResponse.data;
+    
+    // Get user info
+    const userResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${access_token}`);
+    const userData = userResponse.data;
+    
+    let user = await User.findOne({ email: userData.email });
+    
+    if (!user) {
+      user = new User({
+        name: userData.name,
+        email: userData.email,
+        password: 'facebook-auth',
+        profilePicture: userData.picture?.data?.url,
+        isFacebookAuth: true,
+        role: 'user'
+      });
+      await user.save();
+    }
+    
+    const token = user.generateToken();
+    res.redirect(`http://127.0.0.1:5500/dashboard.html?token=${token}&user=${encodeURIComponent(JSON.stringify({
+      name: user.name,
+      email: user.email,
+      profilePicture: user.profilePicture
+    }))}`);  
+  } catch (error) {
+    console.error('Facebook OAuth error:', error);
+    res.redirect('http://127.0.0.1:5500/?error=facebook_oauth_failed');
+  }
+});
+
 // Auth status check
 app.get('/api/auth/status', (req, res) => {
   res.json({
-    authentication: 'email/password + Google OAuth',
+    authentication: 'email/password + Google OAuth + Facebook OAuth',
     endpoints: {
       register: '/api/auth/register',
       login: '/api/auth/login',
-      googleAuth: '/api/auth/google-auth'
+      googleAuth: '/api/auth/google',
+      facebookAuth: '/api/auth/facebook'
     }
   });
 });
