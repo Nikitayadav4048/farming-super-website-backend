@@ -6,7 +6,7 @@ const { google } = require('googleapis');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { nanoid } = require('nanoid');
+const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 const User = require('./models/User');
@@ -136,7 +136,7 @@ const generateUsername = async (email) => {
   let exists = await User.exists({ name: base });
 
   while (exists) {
-    base = `${email.split('@')[0]}_${nanoid(5)}`;
+    base = `${email.split('@')[0]}_${uuidv4().slice(0, 8)}`;
     exists = await User.exists({ name: base });
   }
 
