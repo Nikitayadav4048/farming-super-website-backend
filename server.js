@@ -258,6 +258,11 @@ app.get("/test-ci", (req, res) => {
   res.send("CI/CD pipeline working ✅");
 });
 
+// Debug weather route
+app.get("/api/weather-debug", (req, res) => {
+  res.json({ message: "Weather API is connected", timestamp: new Date() });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
