@@ -13,6 +13,7 @@ const User = require('./models/User');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const weatherRoutes = require('./routes/weather');
+const contactRoutes = require('./routes/contact');
 
 const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
@@ -252,10 +253,16 @@ app.get('/api/auth/status', (req, res) => {
   });
 });
 
+// Test CI/CD endpoint
+app.get("/test-ci", (req, res) => {
+  res.send("CI/CD pipeline working ✅");
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api', contactRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
