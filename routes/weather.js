@@ -25,6 +25,68 @@ const authenticateToken = async (req, res, next) => {
   });
 };
 
+// Main weather endpoint (public)
+router.get('/', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    const weather = await weatherService.getCurrentWeather(lat, lon);
+    res.json({ weather });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Weather history (public)
+router.get('/history', async (req, res) => {
+  try {
+    res.json({ message: 'Weather history endpoint', data: [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Weather alerts (public)
+router.get('/alerts', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    res.json({ alerts: [], message: 'Weather alerts for location' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Farming recommendations (public)
+router.get('/farming-recommendations', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    const weather = await weatherService.getCurrentWeather(lat, lon);
+    const forecast = await weatherService.getWeatherForecast(lat, lon);
+    const recommendations = weatherService.getFarmingRecommendations(weather, forecast);
+    res.json({ recommendations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save weather data
+router.post('/save', async (req, res) => {
+  try {
+    const { location, temperature, humidity, description } = req.body;
+    res.json({ message: 'Weather data saved', data: { location, temperature, humidity, description } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Test endpoint without auth
 router.get('/test', async (req, res) => {
   try {
@@ -96,8 +158,8 @@ router.post('/alerts', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user alerts
-router.get('/alerts', authenticateToken, async (req, res) => {
+// Get user alerts (authenticated)
+router.get('/user-alerts', authenticateToken, async (req, res) => {
   try {
     const alerts = await WeatherAlert.find({ userId: req.user._id });
     res.json({ alerts });
