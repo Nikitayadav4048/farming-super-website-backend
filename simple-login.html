@@ -36,15 +36,41 @@
     
     <div id="loginForm">
         <h2>Login</h2>
-        <form id="login">
+        
+        <!-- Password Login -->
+        <div id="passwordLogin">
+            <form id="login">
+                <div class="form-group">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" placeholder="Password" required>
+                </div>
+                <button type="submit">Login with Password</button>
+            </form>
+            <p style="text-align: center; margin: 10px 0;">OR</p>
+            <button onclick="showOTPLogin()" style="background: #28a745;">Login with Email OTP</button>
+        </div>
+        
+        <!-- OTP Login -->
+        <div id="otpLogin" style="display: none;">
             <div class="form-group">
-                <input type="email" placeholder="Email" required>
+                <input type="email" id="otpEmail" placeholder="Enter your email">
             </div>
-            <div class="form-group">
-                <input type="password" placeholder="Password" required>
+            <button onclick="sendOTP()" id="sendOTPBtn">Send OTP</button>
+            
+            <div id="otpVerification" style="display: none; margin-top: 15px;">
+                <div class="form-group">
+                    <input type="text" id="otpCode" placeholder="Enter OTP" maxlength="6">
+                </div>
+                <div class="form-group">
+                    <input type="text" id="userName" placeholder="Your Name (for new users)">
+                </div>
+                <button onclick="verifyOTP()">Verify & Login</button>
             </div>
-            <button type="submit">Login</button>
-        </form>
+            
+            <button onclick="showPasswordLogin()" style="background: #6c757d; margin-top: 10px;">Back to Password Login</button>
+        </div>
     </div>
     
     <div id="result"></div>
@@ -85,7 +111,7 @@
             });
         };
         
-        // Login
+        // Password Login
         document.getElementById('login').onsubmit = function(e) {
             e.preventDefault();
             const email = e.target[0].value;
@@ -99,26 +125,113 @@
             .then(res => res.json())
             .then(data => {
                 if (data.token) {
-                    document.getElementById('result').innerHTML = 
-                        `<div class="result success">
-                            <h3>✅ Login Success!</h3>
-                            <p>Name: ${data.user.name}</p>
-                            <p>Email: ${data.user.email}</p>
-                            <p>Role: ${data.user.role}</p>
-                            <p>Token: ${data.token.substring(0, 20)}...</p>
-                        </div>`;
+                    showLoginSuccess(data);
                 } else {
                     throw new Error(data.error);
                 }
             })
             .catch(err => {
-                document.getElementById('result').innerHTML = 
-                    `<div class="result error">
-                        <h3>❌ Login Failed</h3>
-                        <p>${err.message}</p>
-                    </div>`;
+                showError('Login Failed', err.message);
             });
         };
+        
+        // OTP Login Functions
+        function showOTPLogin() {
+            document.getElementById('passwordLogin').style.display = 'none';
+            document.getElementById('otpLogin').style.display = 'block';
+        }
+        
+        function showPasswordLogin() {
+            document.getElementById('passwordLogin').style.display = 'block';
+            document.getElementById('otpLogin').style.display = 'none';
+            document.getElementById('otpVerification').style.display = 'none';
+        }
+        
+        async function sendOTP() {
+            const email = document.getElementById('otpEmail').value;
+            if (!email) {
+                showError('Error', 'Please enter your email');
+                return;
+            }
+            
+            document.getElementById('sendOTPBtn').textContent = 'Sending...';
+            
+            try {
+                const response = await fetch('/api/email-otp/send-email-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email})
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('otpVerification').style.display = 'block';
+                    document.getElementById('sendOTPBtn').textContent = 'OTP Sent!';
+                    showSuccess('OTP Sent', data.message + (data.otp ? ` OTP: ${data.otp}` : ''));
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showError('Failed to send OTP', error.message);
+                document.getElementById('sendOTPBtn').textContent = 'Send OTP';
+            }
+        }
+        
+        async function verifyOTP() {
+            const email = document.getElementById('otpEmail').value;
+            const otp = document.getElementById('otpCode').value;
+            const name = document.getElementById('userName').value;
+            
+            if (!otp) {
+                showError('Error', 'Please enter OTP');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/email-otp/verify-email-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, otp, name})
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showLoginSuccess(data);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showError('Verification Failed', error.message);
+            }
+        }
+        
+        // Helper Functions
+        function showLoginSuccess(data) {
+            document.getElementById('result').innerHTML = 
+                `<div class="result success">
+                    <h3>✅ Login Success!</h3>
+                    <p>Name: ${data.user.name}</p>
+                    <p>Email: ${data.user.email}</p>
+                    <p>Role: ${data.user.role}</p>
+                    <p>Token: ${data.token.substring(0, 20)}...</p>
+                </div>`;
+        }
+        
+        function showError(title, message) {
+            document.getElementById('result').innerHTML = 
+                `<div class="result error">
+                    <h3>❌ ${title}</h3>
+                    <p>${message}</p>
+                </div>`;
+        }
+        
+        function showSuccess(title, message) {
+            document.getElementById('result').innerHTML = 
+                `<div class="result success">
+                    <h3>✅ ${title}</h3>
+                    <p>${message}</p>
+                </div>`;
+        }
     </script>
 </body>
 </html>

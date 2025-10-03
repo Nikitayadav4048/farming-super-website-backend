@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Email OTP</title>
+</head>
+<body>
+    <h2>Test Email OTP System</h2>
+    
+    <div>
+        <h3>Send Email OTP</h3>
+        <input type="email" id="email" placeholder="Enter your email">
+        <button onclick="sendEmailOTP()">Send OTP</button>
+    </div>
+    
+    <div>
+        <h3>Verify Email OTP</h3>
+        <input type="text" id="otp" placeholder="Enter OTP" maxlength="6">
+        <input type="text" id="name" placeholder="Your Name">
+        <button onclick="verifyEmailOTP()">Verify OTP</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        async function sendEmailOTP() {
+            const email = document.getElementById('email').value;
+            try {
+                const response = await fetch('/api/email-otp/send-email-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email})
+                });
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        async function verifyEmailOTP() {
+            const email = document.getElementById('email').value;
+            const otp = document.getElementById('otp').value;
+            const name = document.getElementById('name').value;
+            try {
+                const response = await fetch('/api/email-otp/verify-email-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, otp, name})
+                });
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
