@@ -16,6 +16,7 @@ const otpRoutes = require('./routes/otp');
 const emailOtpRoutes = require('./routes/email-otp');
 const weatherRoutes = require('./routes/weather');
 const contactRoutes = require('./routes/contact');
+const roleBasedRoutes = require('./routes/role-based');
 
 const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
@@ -272,6 +273,7 @@ app.use('/api/email-otp', emailOtpRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api', contactRoutes);
+app.use('/api', roleBasedRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {

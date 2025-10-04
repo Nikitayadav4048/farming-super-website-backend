@@ -65,7 +65,7 @@ router.post('/send-email-otp', async (req, res) => {
 // Verify Email OTP
 router.post('/verify-email-otp', async (req, res) => {
   try {
-    const { email, otp, name } = req.body;
+    const { email, otp, name, role } = req.body;
     
     console.log(`🔍 Verifying email OTP: ${email} -> ${otp}`);
     const otpDoc = await OTP.findOne({ phone: email, otp });
@@ -82,7 +82,7 @@ router.post('/verify-email-otp', async (req, res) => {
       user = new User({ 
         email, 
         name: name || `User_${email.split('@')[0]}`,
-        role: 'user'
+        role: role || 'farmer'
       });
       await user.save();
     }
