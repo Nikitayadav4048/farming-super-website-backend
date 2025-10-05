@@ -1,37 +1,41 @@
-name: Deploy Backend to EC2
+name: Deploy Backend to Staging EC2
 
 on:
   push:
     branches:
-      - master   # Trigger on pushes to master branch
+      - Staging-branch   # Trigger only on staging branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js on GitHub runner (optional if building remotely)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # 3️⃣ Install dependencies locally (optional, can skip if installing on EC2)
       - name: Install dependencies
         run: npm install
 
-      # 🚀 Deploy to EC2 using SSH
-      - name: Deploy to EC2
+      # 4️⃣ Deploy to Staging EC2 via SSH
+      - name: Deploy to Staging EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.EC2_HOST }}           # EC2 host (e.g., ubuntu@51.21.168.212)
+          host: ${{ secrets.STAGING_EC2_HOST }}     # Staging EC2 IP
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}        # Private key
+          key: ${{ secrets.STAGING_EC2_SSH_KEY }}   # Private key
           port: 22
           script: |
-                cd ${{ secrets.PROJECT_PATH }}
+                cd /home/ubuntu/backend-staging     # Path to staging backend on EC2
                 git fetch --all
-                git reset --hard origin/master    # ⚡️ force sync with GitHub
+                git reset --hard origin/Staging-branch   # Force sync with staging branch
                 npm install --production
-                pm2 restart backend || pm2 start server.js --name backend
+                pm2 restart agritek-staging || pm2 start server.js --name agritek-staging
+                echo "Staging backend deployed successfully!"
