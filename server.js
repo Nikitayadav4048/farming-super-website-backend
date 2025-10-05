@@ -256,9 +256,13 @@ app.get('/api/auth/status', (req, res) => {
   });
 });
 
-// Test CI/CD endpoint
-app.get("/test-ci", (req, res) => {
-  res.send("CI/CD pipeline working ✅");
+// Test CI/CD endpoint in staging branch
+app.get("/test-ci-staging", (req, res) => {
+  res.json({
+    status: "success",
+    message: "Staging backend deployed successfully ✅",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Debug weather route
