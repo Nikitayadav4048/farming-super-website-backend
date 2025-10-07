@@ -35,7 +35,9 @@ const userSchema = new mongoose.Schema({
   isGoogleAuth: {
     type: Boolean,
     default: false
-  }
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, {
   timestamps: true
 });
@@ -58,4 +60,13 @@ userSchema.methods.comparePassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 };
 
+userSchema.methods.generateResetToken = function() {
+  const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  this.resetPasswordToken = resetToken;
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  return resetToken;
+};
+
 module.exports = mongoose.model('User', userSchema);
+
+
