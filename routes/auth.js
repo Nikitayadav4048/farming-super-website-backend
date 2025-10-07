@@ -53,37 +53,78 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    // Input validation
+    if (!email && !password) {
+      return res.status(400).json({ 
+        error: 'Email and password are required'
+      });
     }
     
-    if (!email.includes('@')) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
+    if (!email) {
+      return res.status(400).json({ 
+        error: 'Email is required'
+      });
     }
     
-    const user = await User.findOne({ email });
+    if (!password) {
+      return res.status(400).json({ 
+        error: 'Password is required'
+      });
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'Incorrect email format'
+      });
+    }
+    
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(400).json({ error: 'No account found with this email address' });
+      return res.status(400).json({ 
+        error: 'Incorrect email'
+      });
     }
     
+    // Account status checks
     if (!user.isActive) {
-      return res.status(400).json({ error: 'Your account has been deactivated. Please contact support' });
+      return res.status(403).json({ 
+        error: 'Your account has been deactivated. Please contact support at support@agritek.com',
+        code: 'ACCOUNT_DEACTIVATED'
+      });
     }
     
-    // Check if user signed up with Google/Facebook
-    if (user.isGoogleAuth) {
-      return res.status(400).json({ error: 'Please login with Google' });
+    // OAuth account check
+    if (user.isGoogleAuth && !user.password) {
+      return res.status(400).json({ 
+        error: 'This account was created with Google. Please use Google Sign-In.',
+        code: 'GOOGLE_ACCOUNT_ONLY'
+      });
     }
     
-    // Check if password exists
-    if (!user.password) {
-      return res.status(400).json({ error: 'Account setup incomplete. Please contact support' });
+    if (user.isFacebookAuth && !user.password) {
+      return res.status(400).json({ 
+        error: 'This account was created with Facebook. Please use Facebook Sign-In.',
+        code: 'FACEBOOK_ACCOUNT_ONLY'
+      });
     }
     
+    // Password validation
+    if (!user.password || user.password === 'google-auth' || user.password === 'facebook-auth') {
+      return res.status(400).json({ 
+        error: 'Password not set for this account. Please use social login or reset your password.',
+        code: 'NO_PASSWORD_SET'
+      });
+    }
+    
+    // Password verification
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ error: 'Incorrect password. Please try again' });
+      return res.status(400).json({ 
+        error: 'Incorrect password'
+      });
     }
     
     // Fix invalid role for old users
@@ -94,16 +135,40 @@ router.post('/login', async (req, res) => {
       await user.save();
     }
     
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+    
     const token = user.generateToken();
     
     res.json({
-      message: 'Login successful',
+      success: true,
+      message: 'Login successful! Welcome back.',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: userRole }
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email, 
+        role: userRole,
+        lastLogin: user.lastLogin
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed. Please try again' });
+    
+    // Database connection error
+    if (error.name === 'MongoNetworkError') {
+      return res.status(503).json({ 
+        error: 'Database connection failed. Please try again later.',
+        code: 'DATABASE_ERROR'
+      });
+    }
+    
+    // Generic server error
+    res.status(500).json({ 
+      error: 'Login failed due to server error. Please try again.',
+      code: 'SERVER_ERROR'
+    });
   }
 });
 
@@ -196,27 +261,36 @@ router.post('/send-reset-token', async (req, res) => {
     const resetToken = user.generateResetToken();
     await user.save();
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'Reset Password - Agritek',
       html: `
         <h2>Reset Your Password</h2>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-        <p>Or use this token: <strong>${resetToken}</strong></p>
+        <p>Your password reset OTP is: <strong>${resetToken}</strong></p>
         <p>Valid for 10 minutes only.</p>
         <p>If you didn't request this, please ignore this email.</p>
       `
     };
 
+    // Always show OTP in terminal for testing
+    console.log(`📧 Reset OTP for ${email}: ${resetToken}`);
+    
     try {
       await transporter.sendMail(mailOptions);
-      res.json({ success: true, message: 'Reset link sent to your email' });
+      console.log(`✅ Email sent successfully to ${email}`);
+      res.json({ 
+        success: true, 
+        message: 'Reset OTP sent to your email',
+        otp: resetToken  // Also include in response for testing
+      });
     } catch (emailError) {
-      res.json({ success: true, message: 'Email service unavailable. Use this token:', resetToken });
+      console.log('❌ Email Error:', emailError.message);
+      res.json({ 
+        success: true, 
+        message: 'Email service unavailable. Use this OTP:', 
+        otp: resetToken 
+      });
     }
   } catch (error) {
     res.status(500).json({ error: 'Failed to send reset token' });

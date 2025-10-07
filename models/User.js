@@ -36,6 +36,13 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isFacebookAuth: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date
+  },
   resetPasswordToken: String,
   resetPasswordExpires: Date
 }, {
@@ -61,7 +68,7 @@ userSchema.methods.comparePassword = async function(password) {
 };
 
 userSchema.methods.generateResetToken = function() {
-  const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const resetToken = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit number
   this.resetPasswordToken = resetToken;
   this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   return resetToken;
