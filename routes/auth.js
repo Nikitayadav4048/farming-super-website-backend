@@ -71,6 +71,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Your account has been deactivated. Please contact support' });
     }
     
+    // Check if user signed up with Google/Facebook
+    if (user.isGoogleAuth) {
+      return res.status(400).json({ error: 'Please login with Google' });
+    }
+    
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Incorrect password. Please try again' });

@@ -182,7 +182,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         password: 'google-auth',
         profilePicture: data.picture,
         isGoogleAuth: true,
-        role: 'user'
+        role: 'farmer'
       });
       await user.save();
     }
@@ -227,7 +227,7 @@ app.get('/api/auth/facebook/callback', async (req, res) => {
         password: 'facebook-auth',
         profilePicture: userData.picture?.data?.url,
         isFacebookAuth: true,
-        role: 'user'
+        role: 'farmer'
       });
       await user.save();
     }
