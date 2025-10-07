@@ -76,9 +76,22 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Please login with Google' });
     }
     
+    // Check if password exists
+    if (!user.password) {
+      return res.status(400).json({ error: 'Account setup incomplete. Please contact support' });
+    }
+    
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Incorrect password. Please try again' });
+    }
+    
+    // Fix invalid role for old users
+    let userRole = user.role;
+    if (!['farmer', 'pilot', 'retail', 'admin'].includes(userRole)) {
+      userRole = 'farmer';
+      user.role = 'farmer';
+      await user.save();
     }
     
     const token = user.generateToken();
@@ -86,9 +99,10 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: { id: user._id, name: user.name, email: user.email, role: userRole }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed. Please try again' });
   }
 });
