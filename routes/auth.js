@@ -5,11 +5,11 @@ const router = express.Router();
 // Register user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, confirmPassword, role } = req.body;
     
     // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+    if (!name || !email || !password || !confirmPassword) {
+      return res.status(400).json({ error: 'Name, email, password and confirm password are required' });
     }
     
     if (!email.includes('@')) {
@@ -18,6 +18,10 @@ router.post('/register', async (req, res) => {
     
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
     }
     
     if (role && !['admin', 'pilot', 'farmer', 'retail'].includes(role)) {
@@ -84,7 +88,7 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({ 
-        error: 'Incorrect email'
+        error: 'Email does not exist'
       });
     }
     
@@ -202,14 +206,18 @@ router.post('/forgot-password', async (req, res) => {
 // Reset Password
 router.post('/reset-password', async (req, res) => {
   try {
-    const { resetToken, newPassword } = req.body;
+    const { resetToken, newPassword, confirmPassword } = req.body;
     
-    if (!resetToken || !newPassword) {
-      return res.status(400).json({ error: 'Reset token and new password are required' });
+    if (!resetToken || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Reset token, new password and confirm password are required' });
     }
     
     if (newPassword.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
     }
     
     const user = await User.findOne({
@@ -300,14 +308,18 @@ router.post('/send-reset-token', async (req, res) => {
 // Reset password with token
 router.post('/reset-password-token', async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword, confirmPassword } = req.body;
     
-    if (!token || !newPassword) {
-      return res.status(400).json({ error: 'Token and new password are required' });
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Token, new password and confirm password are required' });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
     }
 
     const user = await User.findOne({ 
