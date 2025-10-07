@@ -171,7 +171,7 @@ router.post('/reset-password', async (req, res) => {
 const nodemailer = require('nodemailer');
 
 // Email transporter
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,

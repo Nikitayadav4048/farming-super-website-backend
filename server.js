@@ -56,9 +56,26 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 
-// Body parsing middleware
-app.use(express.json());
+// Body parsing middleware with error handling
+app.use(express.json({ 
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid JSON format' });
+      return;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
+
+// JSON error handling middleware
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    return res.status(400).json({ error: 'Invalid JSON format in request body' });
+  }
+  next();
+});
 
 // Google OAuth2 client
 const oauth2Client = new google.auth.OAuth2(
