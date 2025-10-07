@@ -191,13 +191,9 @@ router.post('/verify-email-otp', async (req, res) => {
     // Delete used OTP
     await OTP.findByIdAndDelete(otpDoc._id);
 
-    // Generate token
-    const token = user.generateToken();
-
     res.json({
       success: true,
-      message: 'Login successful',
-      token,
+      message: 'Email verification successful',
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {

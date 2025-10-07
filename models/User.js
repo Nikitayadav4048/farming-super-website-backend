@@ -59,7 +59,7 @@ userSchema.methods.generateToken = function() {
   return jwt.sign(
     { id: this._id, email: this.email, role: this.role },
     process.env.JWT_SECRET || 'farming-secret-key',
-    { expiresIn: '7d' }
+    { expiresIn: '24h' }
   );
 };
 
