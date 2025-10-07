@@ -5,11 +5,11 @@ const router = express.Router();
 // Register user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, confirmPassword, role } = req.body;
+    const { name, email, password, role } = req.body;
     
     // Validation
-    if (!name || !email || !password || !confirmPassword) {
-      return res.status(400).json({ error: 'Name, email, password and confirm password are required' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email and password are required' });
     }
     
     if (!email.includes('@')) {
@@ -18,10 +18,6 @@ router.post('/register', async (req, res) => {
     
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
-    }
-    
-    if (password !== confirmPassword) {
-      return res.status(400).json({ error: 'Passwords do not match' });
     }
     
     if (role && !['admin', 'pilot', 'farmer', 'retail'].includes(role)) {
