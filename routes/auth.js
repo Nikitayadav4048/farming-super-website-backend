@@ -5,7 +5,34 @@ const router = express.Router();
 // Register user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, confirmPassword, role } = req.body;
+    
+    // Validation
+    if (!name || !email || !password || !confirmPassword) {
+      return res.status(400).json({ error: 'Name, email, password and confirm password are required' });
+    }
+    
+    if (!email.includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+    
+    if (role && !['admin', 'pilot', 'farmer', 'retail'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be admin, pilot, farmer, or retail' });
+    }
+    
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email address' });
+    }
     
     const user = new User({ name, email, password, role });
     await user.save();
@@ -18,7 +45,10 @@ router.post('/register', async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Email address is already registered' });
+    }
+    res.status(500).json({ error: 'Registration failed. Please try again' });
   }
 });
 
@@ -27,23 +57,289 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Input validation
+    if (!email && !password) {
+      return res.status(400).json({ 
+        error: 'Email and password are required'
+      });
     }
+    
+    if (!email) {
+      return res.status(400).json({ 
+        error: 'Email is required'
+      });
+    }
+    
+    if (!password) {
+      return res.status(400).json({ 
+        error: 'Password is required'
+      });
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'Incorrect email format'
+      });
+    }
+    
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(400).json({ 
+        error: 'Email does not exist'
+      });
+    }
+    
+    // Account status checks
+    if (!user.isActive) {
+      return res.status(403).json({ 
+        error: 'Your account has been deactivated. Please contact support at support@agritek.com',
+        code: 'ACCOUNT_DEACTIVATED'
+      });
+    }
+    
+    // OAuth account check
+    if (user.isGoogleAuth && !user.password) {
+      return res.status(400).json({ 
+        error: 'This account was created with Google. Please use Google Sign-In.',
+        code: 'GOOGLE_ACCOUNT_ONLY'
+      });
+    }
+    
+    if (user.isFacebookAuth && !user.password) {
+      return res.status(400).json({ 
+        error: 'This account was created with Facebook. Please use Facebook Sign-In.',
+        code: 'FACEBOOK_ACCOUNT_ONLY'
+      });
+    }
+    
+    // Password validation
+    if (!user.password || user.password === 'google-auth' || user.password === 'facebook-auth') {
+      return res.status(400).json({ 
+        error: 'Password not set for this account. Please use social login or reset your password.',
+        code: 'NO_PASSWORD_SET'
+      });
+    }
+    
+    // Password verification
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ 
+        error: 'Incorrect password'
+      });
+    }
+    
+    // Fix invalid role for old users
+    let userRole = user.role;
+    if (!['farmer', 'pilot', 'retail', 'admin'].includes(userRole)) {
+      userRole = 'farmer';
+      user.role = 'farmer';
+      await user.save();
+    }
+    
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
     
     const token = user.generateToken();
     
     res.json({
-      message: 'Login successful',
+      success: true,
+      message: 'Login successful! Welcome back.',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email, 
+        role: userRole,
+        lastLogin: user.lastLogin
+      }
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Login error:', error);
+    
+    // Database connection error
+    if (error.name === 'MongoNetworkError') {
+      return res.status(503).json({ 
+        error: 'Database connection failed. Please try again later.',
+        code: 'DATABASE_ERROR'
+      });
+    }
+    
+    // Generic server error
+    res.status(500).json({ 
+      error: 'Login failed due to server error. Please try again.',
+      code: 'SERVER_ERROR'
+    });
   }
 });
 
+// Forgot Password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+    
+    const resetToken = user.generateResetToken();
+    await user.save();
+    
+    res.json({
+      message: 'Reset token generated successfully',
+      resetToken,
+      expiresIn: '10 minutes'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate reset token' });
+  }
+});
 
+// Reset Password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { resetToken, newPassword, confirmPassword } = req.body;
+    
+    if (!resetToken || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Reset token, new password and confirm password are required' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+    
+    const user = await User.findOne({
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+    
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+    
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Forgot Password Routes (Workaround for deployment issues)
+const nodemailer = require('nodemailer');
+
+// Email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Send reset password token
+router.post('/send-reset-token', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found with this email' });
+    }
+
+    const resetToken = user.generateResetToken();
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Reset Password - Agritek',
+      html: `
+        <h2>Reset Your Password</h2>
+        <p>Your password reset OTP is: <strong>${resetToken}</strong></p>
+        <p>Valid for 10 minutes only.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    };
+
+    // Always show OTP in terminal for testing
+    console.log(`📧 Reset OTP for ${email}: ${resetToken}`);
+    
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ Email sent successfully to ${email}`);
+      res.json({ 
+        success: true, 
+        message: 'Reset OTP sent to your email',
+        otp: resetToken  // Also include in response for testing
+      });
+    } catch (emailError) {
+      console.log('❌ Email Error:', emailError.message);
+      res.json({ 
+        success: true, 
+        message: 'Email service unavailable. Use this OTP:', 
+        otp: resetToken 
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send reset token' });
+  }
+});
+
+// Reset password with token
+router.post('/reset-password-token', async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+    
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Token, new password and confirm password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+
+    const user = await User.findOne({ 
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
 
 module.exports = router;

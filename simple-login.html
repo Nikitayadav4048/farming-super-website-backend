@@ -59,6 +59,9 @@
             </form>
             <p style="text-align: center; margin: 10px 0;">OR</p>
             <button onclick="showOTPLogin()" style="background: #28a745;">Login with Email OTP</button>
+            <p style="text-align: center; margin: 10px 0;">
+                <a href="#" onclick="showForgotPassword()" style="color: #007bff; text-decoration: none;">Forgot Password?</a>
+            </p>
         </div>
         
         <!-- OTP Login -->
@@ -87,6 +90,27 @@
             </div>
             
             <button onclick="showPasswordLogin()" style="background: #6c757d; margin-top: 10px;">Back to Password Login</button>
+        </div>
+        
+        <!-- Forgot Password -->
+        <div id="forgotPassword" style="display: none;">
+            <h3>Reset Password</h3>
+            <div class="form-group">
+                <input type="email" id="resetEmail" placeholder="Enter your email">
+            </div>
+            <button onclick="sendResetOTP()" id="sendResetBtn">Send Reset OTP</button>
+            
+            <div id="resetVerification" style="display: none; margin-top: 15px;">
+                <div class="form-group">
+                    <input type="text" id="resetOTP" placeholder="Enter OTP" maxlength="6">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="newPassword" placeholder="New Password (min 6 chars)">
+                </div>
+                <button onclick="resetPassword()">Reset Password</button>
+            </div>
+            
+            <button onclick="showPasswordLogin()" style="background: #6c757d; margin-top: 10px;">Back to Login</button>
         </div>
     </div>
     
@@ -162,7 +186,15 @@
         function showPasswordLogin() {
             document.getElementById('passwordLogin').style.display = 'block';
             document.getElementById('otpLogin').style.display = 'none';
+            document.getElementById('forgotPassword').style.display = 'none';
             document.getElementById('otpVerification').style.display = 'none';
+            document.getElementById('resetVerification').style.display = 'none';
+        }
+        
+        function showForgotPassword() {
+            document.getElementById('passwordLogin').style.display = 'none';
+            document.getElementById('otpLogin').style.display = 'none';
+            document.getElementById('forgotPassword').style.display = 'block';
         }
         
         async function sendOTP() {
@@ -250,6 +282,76 @@
                     <h3>✅ ${title}</h3>
                     <p>${message}</p>
                 </div>`;
+        }
+        
+        // Forgot Password Functions
+        async function sendResetOTP() {
+            const email = document.getElementById('resetEmail').value;
+            if (!email) {
+                showError('Error', 'Please enter your email');
+                return;
+            }
+            
+            document.getElementById('sendResetBtn').textContent = 'Sending...';
+            
+            try {
+                const response = await fetch('/api/email-otp/forgot-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email})
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('resetVerification').style.display = 'block';
+                    document.getElementById('sendResetBtn').textContent = 'OTP Sent!';
+                    showSuccess('Reset OTP Sent', data.message + (data.otp ? ` OTP: ${data.otp}` : ''));
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showError('Failed to send reset OTP', error.message);
+                document.getElementById('sendResetBtn').textContent = 'Send Reset OTP';
+            }
+        }
+        
+        async function resetPassword() {
+            const email = document.getElementById('resetEmail').value;
+            const otp = document.getElementById('resetOTP').value;
+            const newPassword = document.getElementById('newPassword').value;
+            
+            if (!otp || !newPassword) {
+                showError('Error', 'Please enter OTP and new password');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showError('Error', 'Password must be at least 6 characters');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/email-otp/reset-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, otp, newPassword})
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Password Reset Successful', data.message);
+                    setTimeout(() => {
+                        showPasswordLogin();
+                        document.getElementById('resetEmail').value = '';
+                        document.getElementById('resetOTP').value = '';
+                        document.getElementById('newPassword').value = '';
+                    }, 2000);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showError('Password Reset Failed', error.message);
+            }
         }
     </script>
 </body>

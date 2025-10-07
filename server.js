@@ -17,6 +17,7 @@ const emailOtpRoutes = require('./routes/email-otp');
 const weatherRoutes = require('./routes/weather');
 const contactRoutes = require('./routes/contact');
 const roleBasedRoutes = require('./routes/role-based');
+const forgotPasswordRoutes = require('./routes/forgot-password');
 
 const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
@@ -55,9 +56,26 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 
-// Body parsing middleware
-app.use(express.json());
+// Body parsing middleware with error handling
+app.use(express.json({ 
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid JSON format' });
+      return;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
+
+// JSON error handling middleware
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    return res.status(400).json({ error: 'Invalid JSON format in request body' });
+  }
+  next();
+});
 
 // Google OAuth2 client
 const oauth2Client = new google.auth.OAuth2(
@@ -181,7 +199,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         password: 'google-auth',
         profilePicture: data.picture,
         isGoogleAuth: true,
-        role: 'user'
+        role: 'farmer'
       });
       await user.save();
     }
@@ -226,7 +244,7 @@ app.get('/api/auth/facebook/callback', async (req, res) => {
         password: 'facebook-auth',
         profilePicture: userData.picture?.data?.url,
         isFacebookAuth: true,
-        role: 'user'
+        role: 'farmer'
       });
       await user.save();
     }
@@ -278,6 +296,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', roleBasedRoutes);
+app.use('/api/forgot-password', forgotPasswordRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {

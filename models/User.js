@@ -35,7 +35,16 @@ const userSchema = new mongoose.Schema({
   isGoogleAuth: {
     type: Boolean,
     default: false
-  }
+  },
+  isFacebookAuth: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, {
   timestamps: true
 });
@@ -58,4 +67,13 @@ userSchema.methods.comparePassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 };
 
+userSchema.methods.generateResetToken = function() {
+  const resetToken = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit number
+  this.resetPasswordToken = resetToken;
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  return resetToken;
+};
+
 module.exports = mongoose.model('User', userSchema);
+
+
