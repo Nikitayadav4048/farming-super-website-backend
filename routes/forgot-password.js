@@ -14,8 +14,8 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Send reset password OTP
-router.post('/send-reset-otp', async (req, res) => {
+// Send reset password token
+router.post('/send-reset-token', async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -28,11 +28,10 @@ router.post('/send-reset-otp', async (req, res) => {
       return res.status(404).json({ error: 'User not found with this email' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    await OTP.findOneAndDelete({ phone: email });
-    const otpDoc = new OTP({ phone: email, otp });
-    await otpDoc.save();
+    const resetToken = user.generateResetToken();
+    await user.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -40,50 +39,51 @@ router.post('/send-reset-otp', async (req, res) => {
       subject: 'Reset Password - Agritek',
       html: `
         <h2>Reset Your Password</h2>
-        <p>Your OTP for password reset is: <strong>${otp}</strong></p>
-        <p>Valid for 5 minutes only.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+        <p>Or use this token: <strong>${resetToken}</strong></p>
+        <p>Valid for 10 minutes only.</p>
         <p>If you didn't request this, please ignore this email.</p>
       `
     };
 
     try {
       await transporter.sendMail(mailOptions);
-      res.json({ success: true, message: 'Reset OTP sent to your email' });
+      res.json({ success: true, message: 'Reset link sent to your email' });
     } catch (emailError) {
-      res.json({ success: true, message: 'Email service unavailable. Use this OTP:', otp });
+      res.json({ success: true, message: 'Email service unavailable. Use this token:', resetToken });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to send reset OTP' });
+    res.status(500).json({ error: 'Failed to send reset token' });
   }
 });
 
-// Reset password
+// Reset password with token
 router.post('/reset-password', async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const { token, newPassword } = req.body;
     
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ error: 'Email, OTP and new password are required' });
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    const otpDoc = await OTP.findOne({ phone: email, otp });
-    if (!otpDoc) {
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
-
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ 
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+    
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
     user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
     await user.save();
-    
-    await OTP.findByIdAndDelete(otpDoc._id);
 
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
