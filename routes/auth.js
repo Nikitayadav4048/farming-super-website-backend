@@ -2,7 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const router = express.Router();
 
-// Register user
+// Register user (Step 1: Send OTP)
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -30,8 +30,44 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'User already exists with this email address' });
     }
     
+    res.status(200).json({
+      message: 'Please verify your email with OTP to complete registration',
+      requiresOTP: true
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Registration failed. Please try again' });
+  }
+});
+
+// Complete Registration (Step 2: Verify OTP and create user)
+router.post('/complete-registration', async (req, res) => {
+  try {
+    const { name, email, password, role, otp } = req.body;
+    
+    if (!name || !email || !password || !otp) {
+      return res.status(400).json({ error: 'Name, email, password and OTP are required' });
+    }
+    
+    // Verify OTP
+    const OTP = require('../models/OTP');
+    const otpDoc = await OTP.findOne({ phone: email, otp });
+    
+    if (!otpDoc) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+    
+    // Check if user exists (double check)
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email address' });
+    }
+    
+    // Create user
     const user = new User({ name, email, password, role });
     await user.save();
+    
+    // Delete used OTP
+    await OTP.findByIdAndDelete(otpDoc._id);
     
     const token = user.generateToken();
     
