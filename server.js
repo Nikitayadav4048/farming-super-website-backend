@@ -12,7 +12,7 @@ require('dotenv').config();
 const User = require('./models/User');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
-const otpRoutes = require('./routes/otp');
+
 const emailOtpRoutes = require('./routes/email-otp');
 const weatherRoutes = require('./routes/weather');
 const contactRoutes = require('./routes/contact');
@@ -290,7 +290,7 @@ app.get("/api/weather-debug", (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/otp', otpRoutes);
+
 app.use('/api/email-otp', emailOtpRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);

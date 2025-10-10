@@ -4,12 +4,18 @@ const User = require('../models/User');
 const OTP = require('../models/OTP');
 const router = express.Router();
 
+// Log email configuration for debugging
+console.log('📧 Email Config:', {
+  user: process.env.EMAIL_USER || 'swati2003jain@gmail.com',
+  pass: process.env.EMAIL_PASS ? '***configured***' : '***using-fallback***'
+});
+
 // Email transporter setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com',
-    pass: process.env.EMAIL_PASS || 'your-app-password'
+    user: process.env.EMAIL_USER || 'swati2003jain@gmail.com',
+    pass: process.env.EMAIL_PASS || 'zxvsdyjusprauqcu'
   }
 });
 
@@ -17,6 +23,8 @@ const transporter = nodemailer.createTransport({
 router.post('/send-email-otp', async (req, res) => {
   try {
     const { email } = req.body;
+    
+    console.log(`📧 Sending OTP to: ${email}`);
     
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email required' });
@@ -168,10 +176,17 @@ router.post('/verify-email-otp', async (req, res) => {
   try {
     const { email, otp, name, role } = req.body;
     
+    console.log(`🔍 Received data:`, { email, otp, name, role });
+    
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+    
     console.log(`🔍 Verifying email OTP: ${email} -> ${otp}`);
     const otpDoc = await OTP.findOne({ phone: email, otp });
     
     if (!otpDoc) {
+      console.log(`❌ OTP not found for ${email} with OTP ${otp}`);
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
@@ -186,18 +201,18 @@ router.post('/verify-email-otp', async (req, res) => {
         role: role || 'farmer'
       });
       await user.save();
+      console.log(`✅ New user created: ${user.email}`);
+    } else {
+      console.log(`✅ Existing user found: ${user.email}`);
     }
 
     // Delete used OTP
     await OTP.findByIdAndDelete(otpDoc._id);
-
-    // Generate token
-    const token = user.generateToken();
+    console.log('✅ OTP deleted after verification');
 
     res.json({
       success: true,
-      message: 'Login successful',
-      token,
+      message: 'Email verification successful',
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
