@@ -69,11 +69,8 @@ router.post('/complete-registration', async (req, res) => {
     // Delete used OTP
     await OTP.findByIdAndDelete(otpDoc._id);
     
-    const token = user.generateToken();
-    
     res.status(201).json({
       message: 'User registered successfully',
-      token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
