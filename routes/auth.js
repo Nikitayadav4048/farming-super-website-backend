@@ -39,18 +39,23 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Invalid role" });
     }
 
-    const otpDoc = await OTP.findOne({ email, verified: true });
+    // ✅ Check OTP verified
+    const otpDoc = await OTP.findOne({ email, isVerified: true });
     if (!otpDoc) {
       return res.status(400).json({ error: "Please verify your email with OTP first" });
     }
 
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
+    // Create user
     const user = new User({ name, email, password, role: role || 'farmer' });
     await user.save();
+
+    // Delete OTP after successful registration
     await OTP.findByIdAndDelete(otpDoc._id);
 
     res.status(201).json({
@@ -60,7 +65,7 @@ router.post("/register", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error('Registration error:', error);
     res.status(500).json({ error: "Registration failed. Please try again" });
   }
 });
