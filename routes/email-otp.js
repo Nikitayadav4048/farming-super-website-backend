@@ -19,15 +19,21 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Send Email OTP
+// Send Email OTP for Registration
 router.post('/send-email-otp', async (req, res) => {
   try {
     const { email } = req.body;
     
-    console.log(`📧 Sending OTP to: ${email}`);
+    console.log(`📧 Sending registration OTP to: ${email}`);
     
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email address' });
     }
 
     // Generate 6-digit OTP
@@ -37,25 +43,26 @@ router.post('/send-email-otp', async (req, res) => {
     await OTP.findOneAndDelete({ phone: email }); // Using phone field for email
     const otpDoc = new OTP({ phone: email, otp });
     await otpDoc.save();
-    console.log(`✅ Email OTP saved: ${email} -> ${otp}`);
+    console.log(`✅ Registration OTP saved: ${email} -> ${otp}`);
 
     // Send Email
     const mailOptions = {
       from: process.env.EMAIL_USER || 'agritek@gmail.com',
       to: email,
-      subject: 'Your Agritek Login OTP',
+      subject: 'Verify Your Email - Agritek Registration',
       html: `
-        <h2>Agritek Login OTP</h2>
-        <p>Your OTP for login is: <strong>${otp}</strong></p>
+        <h2>Agritek Email Verification</h2>
+        <p>Your OTP for email verification is: <strong>${otp}</strong></p>
         <p>Valid for 5 minutes only.</p>
+        <p>Enter this OTP to verify your email and complete registration.</p>
         <p>If you didn't request this, please ignore this email.</p>
       `
     };
 
     try {
       await transporter.sendMail(mailOptions);
-      console.log(`📧 Email sent to: ${email}`);
-      res.json({ success: true, message: 'OTP sent to your email!' });
+      console.log(`📧 Registration email sent to: ${email}`);
+      res.json({ success: true, message: 'Verification OTP sent to your email!' });
     } catch (emailError) {
       console.log('❌ Email Error:', emailError.message);
       res.json({ 
@@ -171,18 +178,17 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Verify Email OTP
+// Verify Email OTP (Step 2: Only verify OTP, don't create user)
 router.post('/verify-email-otp', async (req, res) => {
   try {
-    const { email, otp, name, role } = req.body;
+    const { email, otp } = req.body;
     
-    console.log(`🔍 Received data:`, { email, otp, name, role });
+    console.log(`🔍 Verifying email OTP: ${email} -> ${otp}`);
     
     if (!email || !otp) {
       return res.status(400).json({ error: 'Email and OTP are required' });
     }
     
-    console.log(`🔍 Verifying email OTP: ${email} -> ${otp}`);
     const otpDoc = await OTP.findOne({ phone: email, otp });
     
     if (!otpDoc) {
@@ -192,32 +198,18 @@ router.post('/verify-email-otp', async (req, res) => {
 
     console.log('✅ Email OTP verified successfully');
     
-    // Find or create user
-    let user = await User.findOne({ email });
-    if (!user) {
-      user = new User({ 
-        email, 
-        name: name || `User_${email.split('@')[0]}`,
-        role: role || 'farmer'
-      });
-      await user.save();
-      console.log(`✅ New user created: ${user.email}`);
-    } else {
-      console.log(`✅ Existing user found: ${user.email}`);
-    }
-
-    // Delete used OTP
-    await OTP.findByIdAndDelete(otpDoc._id);
-    console.log('✅ OTP deleted after verification');
-
+    // Mark OTP as verified but don't delete yet
+    otpDoc.verified = true;
+    await otpDoc.save();
+    
     res.json({
       success: true,
-      message: 'Email verification successful',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      message: 'Email verified successfully! You can now complete registration.',
+      emailVerified: true
     });
   } catch (error) {
     console.error('Email OTP Verify Error:', error);
-    res.status(500).json({ error: 'Verification failed' });
+    res.status(500).json({ error: 'Email verification failed' });
   }
 });
 

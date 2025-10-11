@@ -2,18 +2,37 @@ const express = require('express');
 const User = require('../models/User');
 const router = express.Router();
 
-// Register user (Step 1: Send OTP)
-router.post('/register', async (req, res) => {
+// Step 1: Verify Email (Send OTP for email verification)
+router.post('/verify-email', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { email } = req.body;
     
-    // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address is required' });
     }
     
-    if (!email.includes('@')) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email address' });
+    }
+    
+    res.status(200).json({
+      message: 'Please check your email for OTP to verify your email address',
+      requiresOTP: true
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Email verification failed. Please try again' });
+  }
+});
+
+// Step 2: Complete Registration (After email verification)
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password, role, otp } = req.body;
+    
+    if (!name || !email || !password || !otp) {
+      return res.status(400).json({ error: 'Name, email, password and OTP are required' });
     }
     
     if (password.length < 6) {
@@ -24,36 +43,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid role. Must be admin, pilot, farmer, or retail' });
     }
     
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email address' });
-    }
-    
-    res.status(200).json({
-      message: 'Please verify your email with OTP to complete registration',
-      requiresOTP: true
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Registration failed. Please try again' });
-  }
-});
-
-// Complete Registration (Step 2: Verify OTP and create user)
-router.post('/complete-registration', async (req, res) => {
-  try {
-    const { name, email, password, role, otp } = req.body;
-    
-    if (!name || !email || !password || !otp) {
-      return res.status(400).json({ error: 'Name, email, password and OTP are required' });
-    }
-    
-    // Verify OTP
+    // Check if OTP was verified in previous step
     const OTP = require('../models/OTP');
-    const otpDoc = await OTP.findOne({ phone: email, otp });
+    const otpDoc = await OTP.findOne({ phone: email, otp, verified: true });
     
     if (!otpDoc) {
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
+      return res.status(400).json({ error: 'Please verify your email with OTP first' });
     }
     
     // Check if user exists (double check)
@@ -63,14 +58,14 @@ router.post('/complete-registration', async (req, res) => {
     }
     
     // Create user
-    const user = new User({ name, email, password, role });
+    const user = new User({ name, email, password, role: role || 'farmer' });
     await user.save();
     
     // Delete used OTP
     await OTP.findByIdAndDelete(otpDoc._id);
     
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'Registration completed successfully! You can now login.',
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
