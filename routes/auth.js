@@ -23,54 +23,48 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // Step 3: Complete Registration (After OTP verification)
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
-    
+
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+      return res.status(400).json({ error: "Name, email, and password required" });
     }
-    
+
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
     }
-    
+
     if (role && !['admin', 'pilot', 'farmer', 'retail'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be admin, pilot, farmer, or retail' });
+      return res.status(400).json({ error: "Invalid role" });
     }
-    
-    // Check if OTP was verified (email should be verified before registration)
-    const OTP = require('../models/OTP');
-    const otpDoc = await OTP.findOne({ phone: email, verified: true });
-    
+
+    const otpDoc = await OTP.findOne({ email, verified: true });
     if (!otpDoc) {
-      return res.status(400).json({ error: 'Please verify your email with OTP first' });
+      return res.status(400).json({ error: "Please verify your email with OTP first" });
     }
-    
-    // Check if user exists (double check)
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email address' });
+      return res.status(400).json({ error: "Email already registered" });
     }
-    
-    // Create user
+
     const user = new User({ name, email, password, role: role || 'farmer' });
     await user.save();
-    
-    // Delete used OTP
     await OTP.findByIdAndDelete(otpDoc._id);
-    
+
     res.status(201).json({
-      message: 'Registration completed successfully! You can now login.',
+      success: true,
+      message: "Registration completed successfully!",
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
+
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({ error: 'Email address is already registered' });
-    }
-    res.status(500).json({ error: 'Registration failed. Please try again' });
+    console.error(error);
+    res.status(500).json({ error: "Registration failed. Please try again" });
   }
 });
+
 
 // Login user
 router.post('/login', async (req, res) => {
