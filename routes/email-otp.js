@@ -30,11 +30,7 @@ router.post('/send-email-otp', async (req, res) => {
       return res.status(400).json({ error: 'Valid email required' });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email address' });
-    }
+    // Allow OTP sending for registration (user check will be done during registration)
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -175,6 +171,57 @@ router.post('/reset-password', async (req, res) => {
   } catch (error) {
     console.error('Reset Password Error:', error);
     res.status(500).json({ error: 'Password reset failed' });
+  }
+});
+
+// Resend OTP (No user existence check)
+router.post('/resend-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    console.log(`🔄 Resending OTP to: ${email}`);
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Delete old OTP and save new one
+    await OTP.findOneAndDelete({ phone: email });
+    const otpDoc = new OTP({ phone: email, otp });
+    await otpDoc.save();
+    console.log(`✅ Resend OTP saved: ${email} -> ${otp}`);
+
+    // Send Email
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'agritek@gmail.com',
+      to: email,
+      subject: 'Resend OTP - Agritek Verification',
+      html: `
+        <h2>Resend OTP - Agritek</h2>
+        <p>Your new OTP is: <strong>${otp}</strong></p>
+        <p>Valid for 5 minutes only.</p>
+        <p>Enter this OTP to verify your email.</p>
+      `
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`📧 Resend OTP email sent to: ${email}`);
+      res.json({ success: true, message: 'New OTP sent to your email!' });
+    } catch (emailError) {
+      console.log('❌ Email Error:', emailError.message);
+      res.json({ 
+        success: true, 
+        message: 'Email service unavailable. Use this OTP:', 
+        otp: otp 
+      });
+    }
+  } catch (error) {
+    console.error('Resend OTP Error:', error);
+    res.status(500).json({ error: 'Failed to resend OTP' });
   }
 });
 

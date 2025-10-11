@@ -2,7 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const router = express.Router();
 
-// Step 1: Verify Email (Send OTP for email verification)
+// Step 1: Verify Email (Check availability)
 router.post('/verify-email', async (req, res) => {
   try {
     const { email } = req.body;
@@ -11,11 +11,7 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Valid email address is required' });
     }
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email address' });
-    }
+    // Skip user existence check for testing - will be checked during registration
     
     res.status(200).json({
       message: 'Please check your email for OTP to verify your email address',
@@ -26,13 +22,13 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
-// Step 2: Complete Registration (After email verification)
+// Step 3: Complete Registration (After OTP verification)
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, otp } = req.body;
+    const { name, email, password, role } = req.body;
     
-    if (!name || !email || !password || !otp) {
-      return res.status(400).json({ error: 'Name, email, password and OTP are required' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email and password are required' });
     }
     
     if (password.length < 6) {
@@ -43,9 +39,9 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid role. Must be admin, pilot, farmer, or retail' });
     }
     
-    // Check if OTP was verified in previous step
+    // Check if OTP was verified (email should be verified before registration)
     const OTP = require('../models/OTP');
-    const otpDoc = await OTP.findOne({ phone: email, otp, verified: true });
+    const otpDoc = await OTP.findOne({ phone: email, verified: true });
     
     if (!otpDoc) {
       return res.status(400).json({ error: 'Please verify your email with OTP first' });

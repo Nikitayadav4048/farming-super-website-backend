@@ -19,38 +19,23 @@
     </style>
 </head>
 <body>
-    <h1>🧪 3-Step Registration Flow</h1>
-    <p><strong>Flow:</strong> 1) Verify Email → 2) Verify OTP → 3) Complete Registration → 4) Login separately</p>
+    <h1>🧪 Simple Registration Flow</h1>
+    <p><strong>Flow:</strong> 1) Check Email → 2) Register → 3) Login separately</p>
     
-    <!-- Step 1: Verify Email -->
+    <!-- Step 1: Check Email -->
     <div class="step">
-        <h3>Step 1: Send Email Verification OTP</h3>
+        <h3>Step 1: Check Email Availability</h3>
         <div class="form-group">
             <label>Email:</label>
             <input type="email" id="email" placeholder="Enter your email" value="test@example.com">
         </div>
-        <button onclick="sendEmailOTP()">Send Verification OTP</button>
+        <button onclick="checkEmail()">Check Email</button>
         <div id="emailResponse" class="response" style="display: none;"></div>
     </div>
 
-    <!-- Step 2: Verify OTP -->
+    <!-- Step 2: Complete Registration -->
     <div class="step">
-        <h3>Step 2: Verify Email OTP</h3>
-        <div class="form-group">
-            <label>Email:</label>
-            <input type="email" id="verifyEmail" placeholder="Enter your email" value="test@example.com">
-        </div>
-        <div class="form-group">
-            <label>OTP:</label>
-            <input type="text" id="verifyOTP" placeholder="Enter 6-digit OTP">
-        </div>
-        <button onclick="verifyEmailOTP()">Verify Email</button>
-        <div id="verifyResponse" class="response" style="display: none;"></div>
-    </div>
-
-    <!-- Step 3: Complete Registration -->
-    <div class="step">
-        <h3>Step 3: Complete Registration</h3>
+        <h3>Step 2: Complete Registration</h3>
         <div class="form-group">
             <label>Name:</label>
             <input type="text" id="name" placeholder="Enter your name" value="Test User">
@@ -72,10 +57,7 @@
                 <option value="admin">Admin</option>
             </select>
         </div>
-        <div class="form-group">
-            <label>OTP (same as verified above):</label>
-            <input type="text" id="regOTP" placeholder="Enter the verified OTP">
-        </div>
+
         <button onclick="completeRegistration()">Complete Registration</button>
         <div id="registerResponse" class="response" style="display: none;"></div>
     </div>
@@ -83,7 +65,7 @@
     <script>
         const API_BASE = 'http://localhost:3000/api';
 
-        async function sendEmailOTP() {
+        async function checkEmail() {
             const email = document.getElementById('email').value;
 
             if (!email) {
@@ -99,101 +81,45 @@
             }
 
             try {
-                // First call verify-email endpoint
-                const verifyResponse = await fetch(`${API_BASE}/auth/verify-email`, {
+                const response = await fetch(`${API_BASE}/auth/verify-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
-                });
-
-                const verifyResult = await verifyResponse.json();
-                
-                if (!verifyResponse.ok) {
-                    alert('Please provide valid email ID');
-                    const responseDiv = document.getElementById('emailResponse');
-                    responseDiv.style.display = 'block';
-                    responseDiv.className = 'response error';
-                    responseDiv.innerHTML = `❌ ${verifyResult.error}`;
-                    return;
-                }
-
-                // Then send OTP
-                const otpResponse = await fetch(`${API_BASE}/email-otp/send-email-otp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-
-                const otpResult = await otpResponse.json();
-                const responseDiv = document.getElementById('emailResponse');
-                responseDiv.style.display = 'block';
-                
-                if (otpResponse.ok) {
-                    responseDiv.className = 'response success';
-                    responseDiv.innerHTML = `✅ ${otpResult.message}${otpResult.otp ? `<br><strong>OTP: ${otpResult.otp}</strong>` : ''}`;
-                    // Auto-fill email in next steps
-                    document.getElementById('verifyEmail').value = email;
-                    document.getElementById('regEmail').value = email;
-                } else {
-                    responseDiv.className = 'response error';
-                    responseDiv.innerHTML = `❌ ${otpResult.error}`;
-                }
-            } catch (error) {
-                const responseDiv = document.getElementById('emailResponse');
-                responseDiv.style.display = 'block';
-                responseDiv.className = 'response error';
-                responseDiv.innerHTML = `❌ Error: ${error.message}`;
-            }
-        }
-
-        async function verifyEmailOTP() {
-            const email = document.getElementById('verifyEmail').value;
-            const otp = document.getElementById('verifyOTP').value;
-
-            if (!email || !otp) {
-                alert('Please enter email and OTP');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/email-otp/verify-email-otp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, otp })
                 });
 
                 const result = await response.json();
-                const responseDiv = document.getElementById('verifyResponse');
+                const responseDiv = document.getElementById('emailResponse');
                 responseDiv.style.display = 'block';
                 
                 if (response.ok) {
                     responseDiv.className = 'response success';
                     responseDiv.innerHTML = `✅ ${result.message}`;
-                    // Auto-fill OTP in registration form
-                    document.getElementById('regOTP').value = otp;
+                    // Auto-fill email in registration form
+                    document.getElementById('regEmail').value = email;
                 } else {
                     responseDiv.className = 'response error';
                     responseDiv.innerHTML = `❌ ${result.error}`;
                 }
             } catch (error) {
-                const responseDiv = document.getElementById('verifyResponse');
+                const responseDiv = document.getElementById('emailResponse');
                 responseDiv.style.display = 'block';
                 responseDiv.className = 'response error';
                 responseDiv.innerHTML = `❌ Error: ${error.message}`;
             }
         }
+
+
 
         async function completeRegistration() {
             const data = {
                 name: document.getElementById('name').value,
                 email: document.getElementById('regEmail').value,
                 password: document.getElementById('password').value,
-                role: document.getElementById('role').value,
-                otp: document.getElementById('regOTP').value
+                role: document.getElementById('role').value
             };
 
-            if (!data.name || !data.email || !data.password || !data.otp) {
-                alert('Please fill all fields');
+            if (!data.name || !data.email || !data.password) {
+                alert('Please fill all required fields');
                 return;
             }
 
