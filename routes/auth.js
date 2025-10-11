@@ -23,50 +23,106 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // Step 3: Complete Registration (After OTP verification)
-router.post("/register", async (req, res) => {
+const express = require('express');
+const User = require('../models/User');
+const OTP = require('../models/OTP');
+const nodemailer = require('nodemailer');
+
+const router = express.Router();
+
+// Email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// 1️⃣ Send Email OTP
+router.post('/send-email-otp', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Name, email, and password required" });
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
-    }
-
-    if (role && !['admin', 'pilot', 'farmer', 'retail'].includes(role)) {
-      return res.status(400).json({ error: "Invalid role" });
-    }
-
-    // ✅ Check OTP verified
-    const otpDoc = await OTP.findOne({ email, isVerified: true });
-    if (!otpDoc) {
-      return res.status(400).json({ error: "Please verify your email with OTP first" });
-    }
-
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
+      return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Create user
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await OTP.findOneAndDelete({ email }); // remove old OTP
+    const otpDoc = new OTP({ email, otp });
+    await otpDoc.save();
+
+    // Send email
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Verify Your Email - Agritek',
+      html: `<p>Your OTP is <strong>${otp}</strong>. Valid for 5 minutes.</p>`
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`OTP for ${email}: ${otp}`);
+
+    res.json({ success: true, message: 'OTP sent to your email' });
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// 2️⃣ Verify Email OTP
+router.post('/verify-email-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' });
+
+    const otpDoc = await OTP.findOne({ email, otp });
+    if (!otpDoc) return res.status(400).json({ error: 'Invalid OTP' });
+
+    otpDoc.isVerified = true;
+    await otpDoc.save();
+
+    res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
+
+// 3️⃣ Register User
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email, password required' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    if (role && !['admin','pilot','farmer','retail'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+    // Check OTP verification
+    const otpDoc = await OTP.findOne({ email, isVerified: true });
+    if (!otpDoc) return res.status(400).json({ error: 'Please verify your email with OTP first' });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ error: 'Email already registered' });
+
     const user = new User({ name, email, password, role: role || 'farmer' });
     await user.save();
 
-    // Delete OTP after successful registration
-    await OTP.findByIdAndDelete(otpDoc._id);
+    await OTP.findByIdAndDelete(otpDoc._id); // remove OTP after successful registration
 
-    res.status(201).json({
+    res.status(201).json({ 
       success: true,
-      message: "Registration completed successfully!",
+      message: 'Registration completed successfully!',
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
-
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: "Registration failed. Please try again" });
+    res.status(500).json({ error: 'Registration failed. Please try again' });
   }
 });
 
