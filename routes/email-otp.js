@@ -281,84 +281,60 @@ const transporter = nodemailer.createTransport({
 
 // ✅ Step 1: Send OTP during Registration
 // ✅ Step 1: Send OTP during Registration
-router.post("/send-email-otp", async (req, res) => {
+router.post('/send-email-otp', async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email || !email.includes("@")) {
-      return res.status(400).json({ error: "Valid email required" });
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
+      return res.status(400).json({ error: 'Email already registered' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save OTP with 5 min expiry
-    await OTP.findOneAndDelete({ email });
-    const otpDoc = new OTP({
-      email,
-      otp,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-    });
+    await OTP.findOneAndDelete({ email }); // remove old OTP
+    const otpDoc = new OTP({ email, otp });
     await otpDoc.save();
 
+    // Send email
     const mailOptions = {
-      from: process.env.EMAIL_USER || "agritek@gmail.com",
+      from: process.env.EMAIL_USER,
       to: email,
-      subject: "Verify Your Email - Agritek Registration",
-      html: `
-        <h2>Agritek Email Verification</h2>
-        <p>Your OTP is: <strong>${otp}</strong></p>
-        <p>Valid for 5 minutes only.</p>
-      `,
+      subject: 'Verify Your Email - Agritek',
+      html: `<p>Your OTP is <strong>${otp}</strong>. Valid for 5 minutes.</p>`
     };
 
     await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: "OTP sent to your email" });
+    console.log(`OTP for ${email}: ${otp}`);
+
+    res.json({ success: true, message: 'OTP sent to your email' });
   } catch (error) {
-    console.error("Send Email OTP Error:", error);
-    res.status(500).json({ error: "Failed to send OTP" });
+    console.error('Send OTP error:', error);
+    res.status(500).json({ error: 'Failed to send OTP' });
   }
 });
 
-
-// ✅ Step 2: Verify OTP & Complete Registration
-// ✅ Step 2: Verify OTP only (no registration here)
-router.post("/verify-email-otp", async (req, res) => {
+// 2️⃣ Verify Email OTP
+router.post('/verify-email-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ error: "Email and OTP are required" });
-    }
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' });
 
     const otpDoc = await OTP.findOne({ email, otp });
+    if (!otpDoc) return res.status(400).json({ error: 'Invalid OTP' });
 
-    if (!otpDoc) {
-      return res.status(400).json({ error: "Invalid OTP" });
-    }
-
-    // Check expiry
-    if (otpDoc.expiresAt < Date.now()) {
-      await OTP.findByIdAndDelete(otpDoc._id);
-      return res.status(400).json({ error: "OTP expired" });
-    }
-
-    // Optional: mark email as verified (for audit)
     otpDoc.isVerified = true;
     await otpDoc.save();
 
-    res.json({ success: true, message: "OTP verified successfully" });
+    res.json({ success: true, message: 'OTP verified successfully' });
   } catch (error) {
-    console.error("Verify Email OTP Error:", error);
-    res.status(500).json({ error: "Failed to verify OTP" });
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ error: 'Failed to verify OTP' });
   }
 });
-
 
 // ✅ Step 3: Forgot Password (unchanged)
 router.post("/forgot-password", async (req, res) => {
