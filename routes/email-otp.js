@@ -280,6 +280,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // ✅ Step 1: Send OTP during Registration
+// ✅ Step 1: Send OTP during Registration
 router.post("/send-email-otp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -288,43 +289,36 @@ router.post("/send-email-otp", async (req, res) => {
       return res.status(400).json({ error: "Valid email required" });
     }
 
-    // 🔍 Check if user already exists
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save or update OTP
-    await OTP.findOneAndDelete({ phone: email });
-    const otpDoc = new OTP({ phone: email, otp });
+    // Save OTP with 5 min expiry
+    await OTP.findOneAndDelete({ email });
+    const otpDoc = new OTP({
+      email,
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+    });
     await otpDoc.save();
 
-    // Send Email
     const mailOptions = {
       from: process.env.EMAIL_USER || "agritek@gmail.com",
       to: email,
       subject: "Verify Your Email - Agritek Registration",
       html: `
         <h2>Agritek Email Verification</h2>
-        <p>Your OTP for email verification is: <strong>${otp}</strong></p>
+        <p>Your OTP is: <strong>${otp}</strong></p>
         <p>Valid for 5 minutes only.</p>
       `,
     };
 
-    try {
-      await transporter.sendMail(mailOptions);
-      res.json({ success: true, message: "OTP sent to your email" });
-    } catch (emailError) {
-      console.error("❌ Email Error:", emailError.message);
-      res.json({
-        success: true,
-        message: "Email sending failed, use this OTP for testing",
-        otp: otp,
-      });
-    }
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true, message: "OTP sent to your email" });
   } catch (error) {
     console.error("Send Email OTP Error:", error);
     res.status(500).json({ error: "Failed to send OTP" });
@@ -333,46 +327,35 @@ router.post("/send-email-otp", async (req, res) => {
 
 
 // ✅ Step 2: Verify OTP & Complete Registration
+// ✅ Step 2: Verify OTP only (no registration here)
 router.post("/verify-email-otp", async (req, res) => {
   try {
-    const { email, otp, name, password, role } = req.body;
+    const { email, otp } = req.body;
 
-    if (!email || !otp || !name || !password || !role) {
-      return res.status(400).json({ error: "All fields are required" });
+    if (!email || !otp) {
+      return res.status(400).json({ error: "Email and OTP are required" });
     }
 
-    // Check if OTP is valid
-    const otpDoc = await OTP.findOne({ phone: email, otp });
+    const otpDoc = await OTP.findOne({ email, otp });
+
     if (!otpDoc) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
+      return res.status(400).json({ error: "Invalid OTP" });
     }
 
-    // Check if email already registered
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
+    // Check expiry
+    if (otpDoc.expiresAt < Date.now()) {
+      await OTP.findByIdAndDelete(otpDoc._id);
+      return res.status(400).json({ error: "OTP expired" });
     }
 
-    // Create user
-    const user = new User({
-      name,
-      email,
-      password, // assume hashed in pre-save hook
-      role,
-    });
+    // Optional: mark email as verified (for audit)
+    otpDoc.isVerified = true;
+    await otpDoc.save();
 
-    await user.save();
-
-    // Delete used OTP
-    await OTP.findByIdAndDelete(otpDoc._id);
-
-    res.json({
-      success: true,
-      message: "Registration successful! You can now log in.",
-    });
+    res.json({ success: true, message: "OTP verified successfully" });
   } catch (error) {
     console.error("Verify Email OTP Error:", error);
-    res.status(500).json({ error: "Registration failed" });
+    res.status(500).json({ error: "Failed to verify OTP" });
   }
 });
 
