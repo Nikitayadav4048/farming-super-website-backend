@@ -18,6 +18,7 @@ const weatherRoutes = require('./routes/weather');
 const contactRoutes = require('./routes/contact');
 const roleBasedRoutes = require('./routes/role-based');
 const forgotPasswordRoutes = require('./routes/forgot-password');
+const farmerRoutes = require('./routes/farmer');
 
 const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
@@ -297,6 +298,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', roleBasedRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
+app.use('/api/farmer', farmerRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {

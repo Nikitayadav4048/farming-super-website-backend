@@ -36,8 +36,8 @@ router.post('/send-email-otp', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Save OTP to database
-    await OTP.findOneAndDelete({ phone: email }); // Using phone field for email
-    const otpDoc = new OTP({ phone: email, otp });
+    await OTP.findOneAndDelete({ email }); // Using email field
+    const otpDoc = new OTP({ email, otp });
     await otpDoc.save();
     console.log(`✅ Registration OTP saved: ${email} -> ${otp}`);
 
@@ -92,8 +92,8 @@ router.post('/forgot-password', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Save OTP to database
-    await OTP.findOneAndDelete({ phone: email }); // Using phone field for email
-    const otpDoc = new OTP({ phone: email, otp });
+    await OTP.findOneAndDelete({ email }); // Using email field
+    const otpDoc = new OTP({ email, otp });
     await otpDoc.save();
     console.log(`✅ Password Reset OTP saved: ${email} -> ${otp}`);
 
@@ -142,7 +142,7 @@ router.post('/reset-password', async (req, res) => {
     }
     
     console.log(`🔍 Verifying reset OTP: ${email} -> ${otp}`);
-    const otpDoc = await OTP.findOne({ phone: email, otp });
+    const otpDoc = await OTP.findOne({ email, otp });
     
     if (!otpDoc) {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
@@ -189,8 +189,8 @@ router.post('/resend-otp', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Delete old OTP and save new one
-    await OTP.findOneAndDelete({ phone: email });
-    const otpDoc = new OTP({ phone: email, otp });
+    await OTP.findOneAndDelete({ email });
+    const otpDoc = new OTP({ email, otp });
     await otpDoc.save();
     console.log(`✅ Resend OTP saved: ${email} -> ${otp}`);
 
@@ -236,7 +236,7 @@ router.post('/verify-email-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email and OTP are required' });
     }
     
-    const otpDoc = await OTP.findOne({ phone: email, otp });
+    const otpDoc = await OTP.findOne({ email, otp });
     
     if (!otpDoc) {
       console.log(`❌ OTP not found for ${email} with OTP ${otp}`);
