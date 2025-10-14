@@ -1,32 +1,66 @@
-const express = require('express');
-const router = express.Router();
-const Farmer = require('../models/Farmer');
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const Farmer = require("../models/Farmer");
 
-// Register new farmer
-router.post('/register', async (req, res) => {
+const router = express.Router();
+
+// Multer configuration for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/farmers/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Only JPEG, JPG, and PNG images are allowed"));
+    }
+  },
+});
+
+// Register farmer with image uploads
+router.post("/register", upload.fields([
+  { name: "aadharFront", maxCount: 1 },
+  { name: "aadharBack", maxCount: 1 },
+  { name: "selfie", maxCount: 1 },
+  { name: "cheque", maxCount: 1 },
+  { name: "farmPhoto", maxCount: 1 }
+]), async (req, res) => {
   try {
-    const farmer = new Farmer(req.body);
+    const farmerData = { ...req.body };
+    
+    // Add file paths to farmer data
+    if (req.files) {
+      if (req.files.aadharFront) farmerData.aadharFront = req.files.aadharFront[0].path;
+      if (req.files.aadharBack) farmerData.aadharBack = req.files.aadharBack[0].path;
+      if (req.files.selfie) farmerData.selfie = req.files.selfie[0].path;
+      if (req.files.cheque) farmerData.cheque = req.files.cheque[0].path;
+      if (req.files.farmPhoto) farmerData.farmPhoto = req.files.farmPhoto[0].path;
+    }
+
+    const farmer = new Farmer(farmerData);
     await farmer.save();
     
     res.status(201).json({
       success: true,
-      message: 'Farmer registered successfully',
-      data: {
-        farmerId: farmer.farmerId,
-        fullName: farmer.fullName,
-        mobile: farmer.mobile,
-        status: farmer.status
-      }
+      message: "Farmer registered successfully",
+      data: farmer
     });
   } catch (error) {
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyValue)[0];
-      return res.status(400).json({
-        success: false,
-        message: `${field} already exists`
-      });
-    }
-    
     res.status(400).json({
       success: false,
       message: error.message
@@ -35,12 +69,11 @@ router.post('/register', async (req, res) => {
 });
 
 // Get all farmers
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const farmers = await Farmer.find().select('-__v');
+    const farmers = await Farmer.find();
     res.json({
       success: true,
-      count: farmers.length,
       data: farmers
     });
   } catch (error) {
@@ -51,42 +84,16 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Search farmers by mobile or farmer ID
-router.get('/search/:query', async (req, res) => {
+// Get farmer by ID
+router.get("/:id", async (req, res) => {
   try {
-    const query = req.params.query;
-    const farmers = await Farmer.find({
-      $or: [
-        { mobile: { $regex: query, $options: 'i' } },
-        { farmerId: { $regex: query, $options: 'i' } },
-        { fullName: { $regex: query, $options: 'i' } }
-      ]
-    }).select('-__v');
-    
-    res.json({
-      success: true,
-      count: farmers.length,
-      data: farmers
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Get farmer by farmerId (FRM000001)
-router.get('/farmer-id/:farmerId', async (req, res) => {
-  try {
-    const farmer = await Farmer.findOne({ farmerId: req.params.farmerId }).select('-__v');
+    const farmer = await Farmer.findById(req.params.id);
     if (!farmer) {
       return res.status(404).json({
         success: false,
-        message: 'Farmer not found'
+        message: "Farmer not found"
       });
     }
-    
     res.json({
       success: true,
       data: farmer
@@ -99,104 +106,30 @@ router.get('/farmer-id/:farmerId', async (req, res) => {
   }
 });
 
-// Get farmer by MongoDB ObjectId
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid farmer ID format'
-      });
-    }
-    
-    const farmer = await Farmer.findById(id).select('-__v');
-    if (!farmer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Farmer not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: farmer
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Update farmer status by farmerId
-router.patch('/farmer-id/:farmerId/status', async (req, res) => {
+// Update farmer status
+router.patch("/:id/status", async (req, res) => {
   try {
     const { status, verifiedBy } = req.body;
-    
-    const farmer = await Farmer.findOneAndUpdate(
-      { farmerId: req.params.farmerId },
-      { status, verifiedBy },
-      { new: true, runValidators: true }
-    );
-    
-    if (!farmer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Farmer not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: `Farmer status updated to ${status}`,
-      data: {
-        farmerId: farmer.farmerId,
-        fullName: farmer.fullName,
-        status: farmer.status,
-        verifiedBy: farmer.verifiedBy
-      }
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Update farmer status by MongoDB ObjectId
-router.patch('/:id/status', async (req, res) => {
-  try {
-    const { status, verifiedBy } = req.body;
-    
     const farmer = await Farmer.findByIdAndUpdate(
       req.params.id,
       { status, verifiedBy },
-      { new: true, runValidators: true }
+      { new: true }
     );
     
     if (!farmer) {
       return res.status(404).json({
         success: false,
-        message: 'Farmer not found'
+        message: "Farmer not found"
       });
     }
     
     res.json({
       success: true,
-      message: `Farmer status updated to ${status}`,
-      data: {
-        farmerId: farmer.farmerId,
-        fullName: farmer.fullName,
-        status: farmer.status,
-        verifiedBy: farmer.verifiedBy
-      }
+      message: "Farmer status updated",
+      data: farmer
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message
     });
