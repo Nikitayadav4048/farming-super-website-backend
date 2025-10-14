@@ -1,58 +1,12 @@
 const express = require("express");
-const multer = require("multer");
-const path = require("path");
 const Farmer = require("../models/Farmer");
 
 const router = express.Router();
 
-// Multer configuration for image uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/farmers/");
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error("Only JPEG, JPG, and PNG images are allowed"));
-    }
-  },
-});
-
-// Register farmer with image uploads
-router.post("/register", upload.fields([
-  { name: "aadharFront", maxCount: 1 },
-  { name: "aadharBack", maxCount: 1 },
-  { name: "selfie", maxCount: 1 },
-  { name: "cheque", maxCount: 1 },
-  { name: "farmPhoto", maxCount: 1 }
-]), async (req, res) => {
+// Register farmer
+router.post("/register", async (req, res) => {
   try {
-    const farmerData = { ...req.body };
-    
-    // Add file paths to farmer data
-    if (req.files) {
-      if (req.files.aadharFront) farmerData.aadharFront = req.files.aadharFront[0].path;
-      if (req.files.aadharBack) farmerData.aadharBack = req.files.aadharBack[0].path;
-      if (req.files.selfie) farmerData.selfie = req.files.selfie[0].path;
-      if (req.files.cheque) farmerData.cheque = req.files.cheque[0].path;
-      if (req.files.farmPhoto) farmerData.farmPhoto = req.files.farmPhoto[0].path;
-    }
-
-    const farmer = new Farmer(farmerData);
+    const farmer = new Farmer(req.body);
     await farmer.save();
     
     res.status(201).json({

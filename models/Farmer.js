@@ -64,15 +64,15 @@ const farmerSchema = new mongoose.Schema(
     },
     aadharFront: {
       type: String,
-      required: true, // stored as file path or URL
+      required: false, // stored as file path or URL
     },
     aadharBack: {
       type: String,
-      required: true,
+      required: false,
     },
     selfie: {
       type: String,
-      required: true,
+      required: false,
     },
     panNumber: {
       type: String,
@@ -108,7 +108,7 @@ const farmerSchema = new mongoose.Schema(
     },
     cheque: {
       type: String,
-      required: true, // file path or URL
+      required: false, // file path or URL
     },
     upi: {
       type: String,
