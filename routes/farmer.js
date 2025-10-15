@@ -67,7 +67,7 @@ router.post("/simple", farmerUpload.single('aadharFront'), async (req, res) => {
 });
 
 // Register farmer with images
-router.post("/register", 
+router.post("/", 
   farmerUpload.any(),
   handleMulterError,
   async (req, res) => {
