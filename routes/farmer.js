@@ -5,6 +5,9 @@ const farmerUpload = require('../middleware/farmerUpload');
 const router = express.Router();
 
 
+// Get farmer by ID
+// Add mongoose to use isValidObjectId (must be defined in the scope)
+const mongoose = require("mongoose");
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // Multer error handling middleware
@@ -322,26 +325,41 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
+
+
 // Get farmer by ID
 router.get("/:id", async (req, res) => {
-  try {
-    const farmer = await Farmer.findById(req.params.id);
-    if (!farmer) {
-      return res.status(404).json({
-        success: false,
-        message: "Farmer not found"
-      });
+    try {
+        const id = req.params.id;
+
+        // 🚨 CRITICAL FIX: Check if the ID is a valid MongoDB ObjectId before trying to query
+        if (!isValidObjectId(id)) {
+            // If it's not a valid ID (e.g., it's "register"), return 404
+            return res.status(404).json({
+                success: false,
+                message: "Resource not found or invalid ID format"
+            });
+        }
+
+        const farmer = await Farmer.findById(id);
+        if (!farmer) {
+            return res.status(404).json({
+                success: false,
+                message: "Farmer not found"
+            });
+        }
+        res.json({
+            success: true,
+            data: farmer
+        });
+    } catch (error) {
+        // This catches other errors, but the ObjectId check avoids the Mongoose CastError
+        console.error('❌ GET /:id error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
-    res.json({
-      success: true,
-      data: farmer
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
 });
 
 
