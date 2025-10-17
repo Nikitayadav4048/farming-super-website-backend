@@ -177,36 +177,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/status/:farmerId", async (req, res) => {
-  try {
-    const farmer = await Farmer.findOne({ farmerId: req.params.farmerId });
-    if (!farmer) {
-      return res.status(404).json({
-        success: false,
-        message: "Farmer not found"
-      });
-    }
-    
-    const statusInfo = {
-      farmerId: farmer.farmerId,
-      registrationDate: farmer.registrationDate,
-      verifiedBy: farmer.status === "Pending" ? "Not Verified" : (farmer.verifiedBy || "N/A"),
-      status: farmer.status
-    };
-    
-    res.json({
-      success: true,
-      data: statusInfo
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-
 router.get("/status/by-email", async (req, res) => {
   try {
     const { email } = req.query; // Use req.query to get parameters from the URL
@@ -257,6 +227,35 @@ router.get("/status/by-email", async (req, res) => {
     });
   }
 });
+router.get("/status/:farmerId", async (req, res) => {
+  try {
+    const farmer = await Farmer.findOne({ farmerId: req.params.farmerId });
+    if (!farmer) {
+      return res.status(404).json({
+        success: false,
+        message: "Farmer not found"
+      });
+    }
+    
+    const statusInfo = {
+      farmerId: farmer.farmerId,
+      registrationDate: farmer.registrationDate,
+      verifiedBy: farmer.status === "Pending" ? "Not Verified" : (farmer.verifiedBy || "N/A"),
+      status: farmer.status
+    };
+    
+    res.json({
+      success: true,
+      data: statusInfo
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 
 router.get("/:id/status-info", async (req, res) => {
   try {
