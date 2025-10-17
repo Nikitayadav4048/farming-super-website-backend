@@ -83,6 +83,7 @@ router.post("/",
     const farmerData = {
       fullName: getField('fullName').trim(),
       mobile: getField('mobile').trim(),
+      email:getField('email').trim(),
       village: getField('village').trim(),
       block: getField('block').trim(),
       district: getField('district').trim(),
@@ -203,6 +204,58 @@ router.get("/status/:farmerId", async (req, res) => {
       message: error.message
     });
   }
+});
+
+
+router.get("/status/by-email", async (req, res) => {
+  try {
+    const { email } = req.query; // Use req.query to get parameters from the URL
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email query parameter is required"
+      });
+    }
+
+    // ✅ FIX APPLIED: Use case-insensitive search (RegEx with 'i' flag)
+    const farmer = await Farmer.findOne({ 
+        email: { $regex: new RegExp(`^${email}$`, 'i') } 
+    });
+
+    if (!farmer) {
+      // Return success: true but no data if KYC is not submitted yet
+      return res.json({
+        success: true,
+        message: "No KYC data found for this email",
+        data: { farmer: null } // Explicitly return null farmer to indicate status is "Not Submitted"
+      });
+    }
+    
+    // Construct the status info object
+    const statusInfo = {
+      farmerId: farmer.farmerId,
+      registrationDate: farmer.registrationDate,
+      verifiedBy: farmer.status === "Pending" ? "Not Verified" : (farmer.verifiedBy || "N/A"),
+      status: farmer.status
+    };
+
+    // Return the full farmer object and the status info
+    res.json({
+      success: true,
+      message: "Farmer status retrieved successfully",
+      data: {
+        farmer: farmer, // Return the full farmer object as requested by your frontend logic
+        statusInfo: statusInfo
+      }
+    });
+  } catch (error) {
+    console.error('❌ GET /status/by-email error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 router.get("/:id/status-info", async (req, res) => {
