@@ -1,6 +1,8 @@
 const express = require("express");
 const Farmer = require("../models/Farmer");
+const Stock = require("../models/Stock");
 const farmerUpload = require('../middleware/farmerUpload');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
@@ -356,6 +358,51 @@ router.patch("/:id/status", async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+});
+
+router.post("/daily-stock", farmerUpload.single('photo'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ status: false, message: "Authorization token required" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { category, items, location, remarks } = req.body;
+
+    if (!category || !items) {
+      return res.status(400).json({ status: false, message: "Category and items are required" });
+    }
+
+    const stockId = `STK_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${Date.now().toString().slice(-5)}`;
+    
+    const newStock = new Stock({
+      farmer_id: decoded.id,
+      category,
+      items: JSON.parse(items),
+      photo_url: req.file ? `/uploads/${req.file.filename}` : null,
+      location,
+      remarks
+    });
+
+    await newStock.save();
+
+    res.json({
+      status: true,
+      message: "Stock updated successfully",
+      data: {
+        stock_id: stockId,
+        farmer_id: decoded.id,
+        category,
+        items: JSON.parse(items),
+        photo_url: newStock.photo_url,
+        created_at: newStock.created_at
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: "Internal server error" });
   }
 });
 

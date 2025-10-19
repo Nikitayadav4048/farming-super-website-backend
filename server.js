@@ -21,6 +21,7 @@ const forgotPasswordRoutes = require('./routes/forgot-password');
 const farmerRoutes = require('./routes/farmer');
 const soilTestRoutes = require('./routes/soiltest');
 const soilTestDemoRoutes = require('./routes/soiltest-demo');
+const stockRoutes = require('./routes/stock');
 
 const FRONTEND_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5500';
 
@@ -303,6 +304,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api/farmer', farmerRoutes);
 app.use('/api/soiltest', soilTestRoutes);
 app.use('/api/soiltest-demo', soilTestDemoRoutes);
+app.use('/api/stock', stockRoutes);
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
